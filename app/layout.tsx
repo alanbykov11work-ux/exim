@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "EXIM Super App",
   description:
     "Заявки на перевозку, отслеживание в реальном времени, каталог контейнеров и прямая связь с менеджером — в одном приложении.",
-  icons: { icon: "/logo.svg" },
+  icons: { icon: "/icon.png" },
 };
 
 export default function RootLayout({

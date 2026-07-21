@@ -188,7 +188,7 @@ export default function EximApp({ user }: { user: EximUser }) {
       {booting && !error && (
         <div className="app-boot">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="EXIM" style={{ height: 44 }} />
+          <img src="/logo.png" alt="EXIM" style={{ height: 44 }} />
           <div className="spin" />
           <div className="t">Загружаем ваши данные…</div>
         </div>

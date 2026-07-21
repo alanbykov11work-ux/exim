@@ -4,7 +4,7 @@ export default function AuthHero() {
     <div className="auth-hero">
       <div className="brand">
         <img
-          src="/logo.svg"
+          src="/logo.png"
           alt="EXIM"
           style={{
             height: 40,

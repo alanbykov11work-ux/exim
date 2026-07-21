@@ -1,18 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import AuthHero from "@/components/AuthHero";
 
-export default function LoginPage() {
+function LoginInner() {
   const router = useRouter();
+  const params = useSearchParams();
   const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(
+    params.get("verified")
+      ? "Почта подтверждена! Войдите со своим email и паролем."
+      : null
+  );
   const [loading, setLoading] = useState(false);
+
+  // Если в URL пришли токены (#access_token=...) или сессия уже есть —
+  // supabase-js подхватит её, и мы сразу заводим пользователя внутрь.
+  useEffect(() => {
+    let stop = false;
+    async function check() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!stop && session) {
+        router.replace("/app");
+        router.refresh();
+      }
+    }
+    check();
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session) {
+        router.replace("/app");
+        router.refresh();
+      }
+    });
+    return () => {
+      stop = true;
+      sub.subscription.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,6 +87,7 @@ export default function LoginPage() {
           <span className="eyebrow">Вход в систему</span>
           <h2>Добро пожаловать</h2>
 
+          {info && !error && <div className="auth-msg ok">{info}</div>}
           {error && <div className="auth-msg error">{error}</div>}
 
           <div className="form-group">
@@ -96,5 +130,13 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginInner />
+    </Suspense>
   );
 }

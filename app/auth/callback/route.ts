@@ -27,7 +27,8 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(
-    `${origin}/login?error=${encodeURIComponent("Ссылка недействительна или устарела")}`
-  );
+  // Сюда попадают после клика по письму из другого браузера/устройства:
+  // подтверждение на сервере Supabase уже произошло, но сессию здесь не
+  // создать (нет PKCE-verifier). Отправляем на вход с понятным сообщением.
+  return NextResponse.redirect(`${origin}/login?verified=1`);
 }

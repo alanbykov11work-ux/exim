@@ -2905,3 +2905,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
     body[data-theme="dark"] .leaflet-popup-content-wrapper,
     body[data-theme="dark"] .leaflet-popup-tip { background: #1C1F2A; color: var(--fg); }
     body[data-theme="dark"] .leaflet-popup-content div { color: var(--fg) !important; }
+/* ===== EXIM enterprise polish (переопределения поверх прототипа) ===== */
+:root {
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.10);
+}
+body { background: #F6F6F4; }
+[data-theme="dark"] body, body[data-theme="dark"] { background: #101216; }
+.card, .rd-card { border: 1px solid var(--border); }
+.btn { border-radius: 9px; }
+.form-input, .form-select, .form-textarea { border-radius: 9px; }
+.svc-card { transition: border-color .12s ease, box-shadow .12s ease; }
+.svc-card:hover { border-color: #cfcfc9; box-shadow: 0 4px 14px rgba(15,23,42,0.08); }
+.pill { border-radius: 6px; }

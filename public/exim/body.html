@@ -580,21 +580,50 @@
 
         <!-- KPI strip -->
         <div class="svc-kpis">
-          <div class="svc-kpi"><div class="mono svc-kpi-n">6</div><div class="svc-kpi-l">услуг под ключ</div></div>
-          <div class="svc-kpi"><div class="mono svc-kpi-n">1 200+</div><div class="svc-kpi-l">оформлений в год</div></div>
-          <div class="svc-kpi"><div class="mono svc-kpi-n">98%</div><div class="svc-kpi-l">без задержек на таможне</div></div>
-          <div class="svc-kpi"><div class="mono svc-kpi-n">24/7</div><div class="svc-kpi-l">поддержка клиента</div></div>
+          <div class="svc-kpi"><div class="mono svc-kpi-n">10</div><div class="svc-kpi-l">услуг под ключ</div></div>
+          <div class="svc-kpi"><div class="mono svc-kpi-n">150+</div><div class="svc-kpi-l">партнёров по миру</div></div>
+          <div class="svc-kpi"><div class="mono svc-kpi-n">15 мин</div><div class="svc-kpi-l">среднее время ответа</div></div>
+          <div class="svc-kpi"><div class="mono svc-kpi-n">100%</div><div class="svc-kpi-l">перевозок застраховано</div></div>
         </div>
 
         <!-- Category filter -->
         <div class="rd-tabs" style="margin: 26px 0 20px;">
           <button class="rd-tab active" onclick="filterServices('all', event)">Все</button>
+          <button class="rd-tab" onclick="filterServices('transport', event)">Перевозки</button>
           <button class="rd-tab" onclick="filterServices('customs', event)">Таможня</button>
           <button class="rd-tab" onclick="filterServices('logistics', event)">Логистика</button>
           <button class="rd-tab" onclick="filterServices('legal', event)">Документы</button>
         </div>
 
         <div class="grid grid-3" id="services-grid">
+          <div class="svc-card" data-cat="transport" onclick="navigate('service-detail', 'auto')">
+            <div class="svc-top"><div class="svc-ic">🚛</div><span class="svc-tag">Перевозки</span></div>
+            <h3 class="svc-h">Автоперевозки</h3>
+            <p class="svc-p">Грузы с полной и частичной загрузкой, включая температурный режим.</p>
+            <div class="svc-foot"><span class="mono svc-price">по запросу</span><span class="svc-arrow">→</span></div>
+          </div>
+
+          <div class="svc-card" data-cat="transport" onclick="navigate('service-detail', 'avia')">
+            <div class="svc-top"><div class="svc-ic">✈️</div><span class="svc-tag">Перевозки</span></div>
+            <h3 class="svc-h">Авиаперевозки</h3>
+            <p class="svc-p">Высокая скорость доставки регулярными авиарейсами по всему миру.</p>
+            <div class="svc-foot"><span class="mono svc-price">по запросу</span><span class="svc-arrow">→</span></div>
+          </div>
+
+          <div class="svc-card" data-cat="transport" onclick="navigate('service-detail', 'rail')">
+            <div class="svc-top"><div class="svc-ic">🚂</div><span class="svc-tag">Перевозки</span></div>
+            <h3 class="svc-h">ЖД-перевозки</h3>
+            <p class="svc-p">Свой подвижной состав: крытые вагоны, полувагоны, цистерны, платформы.</p>
+            <div class="svc-foot"><span class="mono svc-price">по запросу</span><span class="svc-arrow">→</span></div>
+          </div>
+
+          <div class="svc-card" data-cat="transport" onclick="navigate('service-detail', 'multimodal')">
+            <div class="svc-top"><div class="svc-ic">🌏</div><span class="svc-tag">Перевозки</span></div>
+            <h3 class="svc-h">Мультимодальные перевозки</h3>
+            <p class="svc-p">Комбинированные маршруты: море + ЖД + авто по индивидуальной схеме.</p>
+            <div class="svc-foot"><span class="mono svc-price">по запросу</span><span class="svc-arrow">→</span></div>
+          </div>
+
           <div class="svc-card" data-cat="customs" onclick="navigate('service-detail', 'customs')">
             <div class="svc-top"><div class="svc-ic">🛃</div><span class="svc-tag">Таможня</span></div>
             <h3 class="svc-h">Таможенное оформление</h3>

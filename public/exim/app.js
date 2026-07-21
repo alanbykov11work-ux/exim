@@ -55,7 +55,7 @@
         // Populate content if needed
         if (page === 'dashboard') { renderDashboardShipments(); renderRdStatus(); }
         if (page === 'shipments') renderShipmentsList();
-        if (page === 'shipment-detail') renderShipmentDetail(id);
+        if (page === 'shipment-detail') { renderShipmentDetail(id); renderShipmentDocs(id); }
         if (page === 'tracking') renderTracking();
         if (page === 'service-detail') renderServiceDetail(id);
         if (page === 'margin') renderMargin();
@@ -395,23 +395,12 @@
           </div>
 
           <div class="card" style="margin-top: 24px;">
-            <h3 class="card-title" style="margin-bottom: 16px;">Документы</h3>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              ${[
-                { n: 'Коммерческий инвойс', t: 'PDF' },
-                { n: 'Упаковочный лист', t: 'PDF' },
-                { n: 'Коносамент (B/L)', t: 'PDF' },
-                { n: 'Договор перевозки', t: 'PDF' }
-              ].map(d => `
-                <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;">
-                  <span style="font-size: 20px;">📄</span>
-                  <div style="flex: 1;">
-                    <div style="font-weight: 600; font-size: 14px;">${d.n}</div>
-                    <div style="font-size: 12px; color: var(--muted);">${d.t} · ${ship.id}</div>
-                  </div>
-                  <button class="btn btn-ghost btn-sm" onclick="downloadDoc('${d.n}', '${ship.id}')">Скачать</button>
-                </div>
-              `).join('')}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <h3 class="card-title" style="margin-bottom:0;">Документы</h3>
+              <button class="btn btn-secondary btn-sm" onclick="addShipmentDoc('${ship.id}')">+ Прикрепить</button>
+            </div>
+            <div id="ship-docs-${ship.id}" style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="color:var(--muted);font-size:13.5px;padding:6px 2px;">Загрузка…</div>
             </div>
           </div>
           </div>
@@ -685,6 +674,30 @@
 
     function renderServiceDetail(id) {
       const services = {
+        auto: {
+          title: 'Автоперевозки', icon: '🚛', price: 'по запросу',
+          description: 'Автомобильные перевозки грузов с полной и частичной загрузкой — все виды грузов, в том числе требующие поддержания температурного режима',
+          features: ['Полная и частичная загрузка (FTL/LTL)', 'Рефрижераторные перевозки', 'Негабаритные и тяжеловесные грузы', 'Опытные водители, знание трасс СНГ и Китая', 'Мониторинг груза на всём маршруте', 'Страхование каждой перевозки'],
+          included: ['Подбор транспорта', 'Разработка маршрута', 'Сопроводительные документы', 'Отслеживание в пути']
+        },
+        avia: {
+          title: 'Авиаперевозки', icon: '✈️', price: 'по запросу',
+          description: 'Высокая скорость доставки регулярными авиарейсами — большой опыт в области международных грузовых авиаперевозок, 150+ партнёров по всему миру',
+          features: ['Организация перевозки оптимальным маршрутом', 'Бронирование мест на выбранный рейс', 'Оформление всей документации', 'Хранение груза в аэропорту', 'Полный контроль передвижения', 'Отслеживание статуса доставки'],
+          included: ['Разработка маршрута', 'Бронирование рейса', 'Оформление документов', 'Контроль доставки']
+        },
+        rail: {
+          title: 'ЖД-перевозки', icon: '🚂', price: 'по запросу',
+          description: 'Железнодорожные перевозки грузов — полный комплекс транспортно-логистических услуг для бизнеса и частных лиц, собственный подвижной состав',
+          features: ['Крытые вагоны, полувагоны, цистерны, платформы', 'Погрузочно-разгрузочные работы от 3 до 450 тонн', 'Перевозки Китай — Казахстан — СНГ', 'Терминальная обработка груза', 'Содействие в разрешительной документации', 'Несколько маршрутов на выбор'],
+          included: ['Подача вагонов', 'Погрузка/выгрузка', 'Документальное оформление', 'Контроль в пути']
+        },
+        multimodal: {
+          title: 'Мультимодальные перевозки', icon: '🌏', price: 'по запросу',
+          description: 'Комбинированные схемы доставки: море + железная дорога + авто. Индивидуальные схемы перевозки для каждого заказчика',
+          features: ['Средний коридор: Китай — КЗ — ЕС', 'Маршруты через Достык, Хоргос и порт Актау', 'Регулярные внешнеторговые и каботажные перевозки', 'Надёжные суда различных типов', 'Единый оператор на всём маршруте', 'Оптимизация стоимости и сроков'],
+          included: ['Индивидуальная схема', 'Все виды транспорта', 'Сквозной документооборот', 'Единая точка контроля']
+        },
         customs: {
           title: 'Таможенное оформление',
           icon: '🛃',
@@ -1394,6 +1407,66 @@
       }
     });
 
+
+
+    // ===== Документы заявки (Supabase Storage) =====
+    async function renderShipmentDocs(shipId) {
+      const box = document.getElementById('ship-docs-' + shipId);
+      if (!box || !window.__EXIM_DOCS) return;
+      try {
+        const files = await window.__EXIM_DOCS.list('shipments/' + shipId);
+        if (!files.length) {
+          box.innerHTML = '<div style="color:var(--muted);font-size:13.5px;padding:6px 2px;">Документов пока нет. Прикрепите инвойс, упаковочный лист или договор.</div>';
+          return;
+        }
+        box.innerHTML = files.map(function(f) {
+          const shown = f.name.replace(/^\d+_/, '');
+          const ext = (f.name.split('.').pop() || '').toUpperCase().slice(0, 5);
+          return '<div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;">' +
+            '<span class="pill pill-info">' + ext + '</span>' +
+            '<div style="flex: 1;"><div style="font-weight: 600; font-size: 14px;">' + shown + '</div>' +
+            '<div style="font-size: 12px; color: var(--muted);">' + (f.created_at ? new Date(f.created_at).toLocaleDateString('ru-RU') : '') + ' · ' + shipId + '</div></div>' +
+            '<button class="btn btn-ghost btn-sm" onclick="dlShipmentDoc(\'' + shipId + '\',\'' + f.name + '\')">Скачать</button>' +
+            '<button class="btn btn-ghost btn-sm" style="color:var(--accent);" onclick="rmShipmentDoc(\'' + shipId + '\',\'' + f.name + '\')">Удалить</button>' +
+            '</div>';
+        }).join('');
+      } catch (e) {
+        box.innerHTML = '<div style="color:var(--muted);font-size:13.5px;">Не удалось загрузить документы</div>';
+      }
+    }
+    function addShipmentDoc(shipId) {
+      if (!window.__EXIM_DOCS) return;
+      const picker = document.createElement('input');
+      picker.type = 'file';
+      picker.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';
+      picker.onchange = async function() {
+        if (!picker.files.length) return;
+        const file = picker.files[0];
+        if (file.size > 50 * 1024 * 1024) { showToast('warning', 'Файл слишком большой', 'Максимум 50 МБ'); return; }
+        showToast('info', 'Загрузка…', file.name);
+        try {
+          await window.__EXIM_DOCS.upload(file, 'shipments/' + shipId);
+          showToast('success', 'Документ прикреплён', file.name);
+          renderShipmentDocs(shipId);
+        } catch (e) { showToast('danger', 'Ошибка загрузки', (e && e.message) || ''); }
+      };
+      picker.click();
+    }
+    async function dlShipmentDoc(shipId, name) {
+      try {
+        const url = await window.__EXIM_DOCS.signedUrl('shipments/' + shipId + '/' + name);
+        const a = document.createElement('a');
+        a.href = url; a.download = name.replace(/^\d+_/, ''); a.target = '_blank';
+        document.body.appendChild(a); a.click(); a.remove();
+      } catch (e) { showToast('danger', 'Ошибка', 'Не удалось получить файл'); }
+    }
+    async function rmShipmentDoc(shipId, name) {
+      if (!confirm('Удалить документ?')) return;
+      try {
+        await window.__EXIM_DOCS.remove('shipments/' + shipId + '/' + name);
+        renderShipmentDocs(shipId);
+      } catch (e) { showToast('danger', 'Ошибка', 'Не удалось удалить'); }
+    }
 
     // ===== Документы профиля (Supabase Storage) =====
     async function renderProfileDocs() {

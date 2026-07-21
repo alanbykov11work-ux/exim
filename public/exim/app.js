@@ -1290,6 +1290,7 @@
           <div style="color: var(--muted); font-size: 14px;">Пн–Пт 9:00–18:00 (GMT+5)</div>
         </div>
         <a class="btn btn-primary btn-lg" style="width: 100%; margin-bottom: 10px; display: flex; justify-content: center; text-decoration: none;" href="tel:${OFFICE_PHONE.replace(/\s/g, '')}">Позвонить ${OFFICE_PHONE}</a>
+        <button class="btn btn-primary btn-lg" style="width: 100%; margin-bottom: 10px; background:#25D366;" onclick="closeModal(); openWhatsApp('Здравствуйте! Пишу из EXIM Super App (' + profileClient() + ').')">WhatsApp +7 700 494 94 99</button>
         <button class="btn btn-secondary btn-lg" style="width: 100%;" onclick="closeModal(); messageManager('${name}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Написать в чат</button>`);
     }
     function chatKey(name) { return String(name).replace(/[^\wа-яА-ЯёЁ]+/g, '_'); }
@@ -1389,7 +1390,8 @@
           });
           persist();
           pushNotif('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>', 'Заявка на услугу отправлена', title + ' — менеджер свяжется с вами в ближайшее время', null, null);
-          showToast('success', 'Заявка отправлена', 'Менеджер свяжется с вами в ближайшее время');
+          showToast('success', 'Открываем WhatsApp', 'Продолжите диалог с менеджером в WhatsApp');
+          openWhatsApp('Здравствуйте! Хочу заказать услугу «' + title + '» (заявка из EXIM Super App, ' + profileClient() + ').');
           return;
         }
       }
@@ -1409,6 +1411,13 @@
 
 
 
+
+    // ===== WhatsApp =====
+    const WHATSAPP_PHONE = '77004949499'; // +7 700 494 94 99 — EXIM KZ
+    function openWhatsApp(text) {
+      const url = 'https://wa.me/' + WHATSAPP_PHONE + '?text=' + encodeURIComponent(text);
+      window.open(url, '_blank');
+    }
     // ===== Документы заявки (Supabase Storage) =====
     async function renderShipmentDocs(shipId) {
       const box = document.getElementById('ship-docs-' + shipId);

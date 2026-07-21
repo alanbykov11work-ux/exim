@@ -2919,3 +2919,78 @@ body { background: #F6F6F4; }
 .svc-card { transition: border-color .12s ease, box-shadow .12s ease; }
 .svc-card:hover { border-color: #cfcfc9; box-shadow: 0 4px 14px rgba(15,23,42,0.08); }
 .pill { border-radius: 6px; }
+
+/* ===== Графитовая тема оболочки — в стиле экрана входа ===== */
+.app-sidebar {
+  background: #16181d;
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+.app-sidebar::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none;
+}
+.app-sidebar > * { position: relative; }
+.app-sidebar .app-nav a { color: rgba(255,255,255,0.62); border-radius: 9px; }
+.app-sidebar .app-nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.app-sidebar .app-nav a.active {
+  background: rgba(225,29,72,0.16);
+  color: #fff;
+  box-shadow: none;
+  position: relative;
+}
+.app-sidebar .app-nav a.active::before {
+  content: "";
+  position: absolute; left: 0; top: 8px; bottom: 8px;
+  width: 3px; border-radius: 2px;
+  background: var(--accent);
+}
+.sb-foot { border-top-color: rgba(255,255,255,0.1); }
+.sb-foot a { color: rgba(255,255,255,0.55); border-radius: 9px; }
+.sb-foot a:hover { background: rgba(255,255,255,0.07); color: #fff; }
+
+/* переключатель ролей в шапке — нейтральный */
+.role-switcher { background: #eeeeea !important; border-radius: 9px; }
+.role-switcher button.active { background: #16181d !important; color: #fff !important; }
+
+/* KPI: первый тайл графитовый вместо красного */
+.svc-kpi { border-radius: 12px; }
+.svc-kpi:first-child { background: #16181d !important; }
+.svc-kpi:first-child .svc-kpi-n { color: #fff; }
+.svc-kpi:first-child .svc-kpi-n::after { content: ""; display: block; width: 26px; height: 3px; border-radius: 2px; background: var(--accent); margin-top: 8px; }
+.svc-kpi:first-child .svc-kpi-l { color: rgba(255,255,255,0.6); }
+body[data-theme="dark"] .svc-kpi:first-child { background: #16181d !important; }
+
+/* промо-карточка — графит, красный только в кнопке-акценте */
+.rd-promo { background: #16181d; border-radius: 14px; text-align: left; }
+.rd-promo .rd-promo-btn { background: var(--accent); color: #fff; border-radius: 9px; }
+.rd-promo .rd-promo-btn:hover { background: #c11540; }
+
+/* активные табы — сдержанный графит */
+.rd-tab.active { background: #16181d !important; color: #fff !important; }
+
+/* тёмная тема: сайдбар остаётся графитовым */
+body[data-theme="dark"] .app-sidebar { background: #101216; }
+
+/* герой-баннер на дашборде — графит с сеткой, как левая панель входа */
+.rd-hero {
+  background: #16181d;
+  border-radius: 14px;
+}
+.rd-hero::after { display: none; }
+.rd-hero::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none;
+}
+.rd-hero > * { position: relative; }
+.rd-hero-btn { background: var(--accent); color: #fff; border-radius: 9px; }
+.rd-hero-btn:hover { transform: none; background: #c11540; }

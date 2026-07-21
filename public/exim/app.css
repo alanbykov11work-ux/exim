@@ -2994,3 +2994,9 @@ body[data-theme="dark"] .app-sidebar { background: #101216; }
 .rd-hero > * { position: relative; }
 .rd-hero-btn { background: var(--accent); color: #fff; border-radius: 9px; }
 .rd-hero-btn:hover { transform: none; background: #c11540; }
+
+/* монохромные SVG-иконки вместо эмодзи */
+.dash-link-icon svg, .svc-ic svg { width: 20px; height: 20px; color: #16181d; }
+.svc-ic { display: grid; place-items: center; }
+body[data-theme="dark"] .dash-link-icon svg, body[data-theme="dark"] .svc-ic svg { color: #fff; }
+.rd-promo svg { color: #fff; width: 30px; height: 30px; }

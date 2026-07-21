@@ -299,7 +299,7 @@
       if (list.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <div class="empty-icon">📦</div>
+            <div class="empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
             <h2 class="empty-title">Ничего не найдено</h2>
             <p class="empty-message">Нет перевозок с выбранным фильтром</p>
           </div>`;
@@ -327,10 +327,10 @@
             </div>
           </div>
           <div class="shipment-meta">
-            <span>🗓️ ${ship.created}</span>
-            <span>📦 ${ship.container}</span>
-            <span>⚖️ ${ship.weight}</span>
-            <span>💰 ${fmtKZT(ship.price)}</span>
+            <span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${ship.created}</span>
+            <span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> ${ship.container}</span>
+            <span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6a3.5 3.5 0 0 0 6 0zM19 7l-3 6a3.5 3.5 0 0 0 6 0z"/></svg> ${ship.weight}</span>
+            <span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="18"/></svg> ${fmtKZT(ship.price)}</span>
           </div>
         </div>
       `).join('');
@@ -372,10 +372,10 @@
           </div>
 
           <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
-            <button class="btn btn-primary btn-sm" onclick="navigate('tracking')">📍 Отследить на карте</button>
-            <button class="btn btn-secondary btn-sm" onclick="downloadInvoice('${ship.id}')">📄 Инвойс</button>
-            ${!ship.paid ? `<button class="btn btn-secondary btn-sm" onclick="payInvoice('${ship.id}')">💳 Оплатить</button>` : ''}
-            <button class="btn btn-ghost btn-sm" onclick="shareShipment('${ship.id}')">🔗 Поделиться</button>
+            <button class="btn btn-primary btn-sm" onclick="navigate('tracking')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Отследить на карте</button>
+            <button class="btn btn-secondary btn-sm" onclick="downloadInvoice('${ship.id}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Инвойс</button>
+            ${!ship.paid ? `<button class="btn btn-secondary btn-sm" onclick="payInvoice('${ship.id}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Оплатить</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="shareShipment('${ship.id}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Поделиться</button>
           </div>
         </div>
 
@@ -446,8 +446,8 @@
                 </div>
               </div>
               <div style="display: flex; gap: 8px;">
-                <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="callManager('${ship.manager}')">📞 Позвонить</button>
-                <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="messageManager('${ship.manager}')">💬 Написать</button>
+                <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="callManager('${ship.manager}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.78.66 2.62a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.46-1.23a2 2 0 0 1 2.11-.45c.84.32 1.72.54 2.62.66A2 2 0 0 1 22 16.92z"/></svg> Позвонить</button>
+                <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="messageManager('${ship.manager}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Написать</button>
               </div>
             </div>
           </div>
@@ -460,7 +460,7 @@
       if (!ship) {
         document.getElementById('tracking-content').innerHTML = `
           <div class="empty-state">
-            <div class="empty-icon">📦</div>
+            <div class="empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
             <h2 class="empty-title">Нет активных перевозок</h2>
             <p class="empty-message">Все ваши грузы доставлены</p>
           </div>
@@ -551,7 +551,7 @@
       });
       const c = STATUSES[cur];
       L.marker([c.lat, c.lng], {
-        icon: L.divIcon({ className: '', html: '<div class="cargo-pin"><div class="cargo-pulse"></div><div class="cargo-dot">🚚</div></div>', iconSize: [46, 46], iconAnchor: [23, 23] }),
+        icon: L.divIcon({ className: '', html: '<div class="cargo-pin"><div class="cargo-pulse"></div><div class="cargo-dot"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg></div></div>', iconSize: [46, 46], iconAnchor: [23, 23] }),
         zIndexOffset: 1000
       }).addTo(map).bindPopup('<div style="min-width:170px;"><div style="font-weight:700;margin-bottom:2px;">' + ship.id + '</div><div style="font-size:12px;color:#64748B;">' + c.label + ' · ' + c.addr + '</div></div>');
       map.fitBounds(L.latLngBounds(pts), { padding: [45, 45] });
@@ -600,7 +600,7 @@
           <animate attributeName="opacity" from="0.5" to="0" dur="1.8s" repeatCount="indefinite"/>
         </circle>
         <circle cx="${c.mx}" cy="${c.my}" r="13" fill="#E11D48" stroke="#fff" stroke-width="3"/>
-        <text x="${c.mx}" y="${c.my + 5}" text-anchor="middle" font-size="14">🚚</text>`;
+        <text x="${c.mx}" y="${c.my + 5}" text-anchor="middle" font-size="14"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg></text>`;
 
       // View state
       MAP = { stage, world, scale: 1, tx: 0, ty: 0, min: 0.6, max: 3, ship };
@@ -662,7 +662,7 @@
       document.getElementById('track-popup-body').innerHTML = `
         <div style="font-size:11px;font-weight:700;color:${state.c};text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">${state.t}</div>
         <div style="font-weight:700;font-size:15px;margin-bottom:2px;">${s.label}</div>
-        <div style="font-size:13px;color:var(--muted);">📍 ${s.addr}</div>`;
+        <div style="font-size:13px;color:var(--muted);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${s.addr}</div>`;
       // position popup over the stop in stage coords
       const px = MAP.tx + s.mx * MAP.scale;
       const py = MAP.ty + s.my * MAP.scale;
@@ -675,32 +675,32 @@
     function renderServiceDetail(id) {
       const services = {
         auto: {
-          title: 'Автоперевозки', icon: '🚛', price: 'по запросу',
+          title: 'Автоперевозки', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg>', price: 'по запросу',
           description: 'Автомобильные перевозки грузов с полной и частичной загрузкой — все виды грузов, в том числе требующие поддержания температурного режима',
           features: ['Полная и частичная загрузка (FTL/LTL)', 'Рефрижераторные перевозки', 'Негабаритные и тяжеловесные грузы', 'Опытные водители, знание трасс СНГ и Китая', 'Мониторинг груза на всём маршруте', 'Страхование каждой перевозки'],
           included: ['Подбор транспорта', 'Разработка маршрута', 'Сопроводительные документы', 'Отслеживание в пути']
         },
         avia: {
-          title: 'Авиаперевозки', icon: '✈️', price: 'по запросу',
+          title: 'Авиаперевозки', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>', price: 'по запросу',
           description: 'Высокая скорость доставки регулярными авиарейсами — большой опыт в области международных грузовых авиаперевозок, 150+ партнёров по всему миру',
           features: ['Организация перевозки оптимальным маршрутом', 'Бронирование мест на выбранный рейс', 'Оформление всей документации', 'Хранение груза в аэропорту', 'Полный контроль передвижения', 'Отслеживание статуса доставки'],
           included: ['Разработка маршрута', 'Бронирование рейса', 'Оформление документов', 'Контроль доставки']
         },
         rail: {
-          title: 'ЖД-перевозки', icon: '🚂', price: 'по запросу',
+          title: 'ЖД-перевозки', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="4" y="3" width="16" height="13" rx="2"/><path d="M4 11h16"/><circle cx="8.5" cy="19" r="1.6"/><circle cx="15.5" cy="19" r="1.6"/><path d="M8 16l-2 5M16 16l2 5"/></svg>', price: 'по запросу',
           description: 'Железнодорожные перевозки грузов — полный комплекс транспортно-логистических услуг для бизнеса и частных лиц, собственный подвижной состав',
           features: ['Крытые вагоны, полувагоны, цистерны, платформы', 'Погрузочно-разгрузочные работы от 3 до 450 тонн', 'Перевозки Китай — Казахстан — СНГ', 'Терминальная обработка груза', 'Содействие в разрешительной документации', 'Несколько маршрутов на выбор'],
           included: ['Подача вагонов', 'Погрузка/выгрузка', 'Документальное оформление', 'Контроль в пути']
         },
         multimodal: {
-          title: 'Мультимодальные перевозки', icon: '🌏', price: 'по запросу',
+          title: 'Мультимодальные перевозки', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', price: 'по запросу',
           description: 'Комбинированные схемы доставки: море + железная дорога + авто. Индивидуальные схемы перевозки для каждого заказчика',
           features: ['Средний коридор: Китай — КЗ — ЕС', 'Маршруты через Достык, Хоргос и порт Актау', 'Регулярные внешнеторговые и каботажные перевозки', 'Надёжные суда различных типов', 'Единый оператор на всём маршруте', 'Оптимизация стоимости и сроков'],
           included: ['Индивидуальная схема', 'Все виды транспорта', 'Сквозной документооборот', 'Единая точка контроля']
         },
         customs: {
           title: 'Таможенное оформление',
-          icon: '🛃',
+          icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
           price: 'от ₸ 213 750',
           description: 'Полное сопровождение грузов на всех этапах таможенного оформления в Республике Казахстан',
           features: [
@@ -721,7 +721,7 @@
         },
         insurance: {
           title: 'Страхование груза',
-          icon: '🛡️',
+          icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
           price: '2% от стоимости',
           description: 'Комплексное страхование грузов от всех рисков при международной перевозке',
           features: [
@@ -741,7 +741,7 @@
         },
         storage: {
           title: 'Складское хранение',
-          icon: '📦',
+          icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
           price: '₸ 7 125 / день',
           description: 'Временное хранение грузов на лицензированном складе временного хранения в Алматы',
           features: [
@@ -760,19 +760,19 @@
           ]
         },
         certification: {
-          title: 'Сертификация', icon: '📋', price: 'от ₸ 142 500',
+          title: 'Сертификация', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>', price: 'от ₸ 142 500',
           description: 'Получение сертификатов и деклараций соответствия техническим регламентам ЕАЭС',
           features: ['Определение схемы сертификации', 'Подготовка доказательной базы', 'Испытания в аккредитованной лаборатории', 'Регистрация деклараций', 'Сертификаты происхождения', 'Отказные письма'],
           included: ['Анализ товара', 'Оформление документов', 'Регистрация в реестре', 'Консультация специалиста']
         },
         consulting: {
-          title: 'ВЭД консалтинг', icon: '💼', price: '₸ 71 250 / час',
+          title: 'ВЭД консалтинг', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>', price: '₸ 71 250 / час',
           description: 'Консультации по внешнеэкономической деятельности, валютному контролю и налогообложению',
           features: ['Структурирование сделки', 'Подбор кодов ТН ВЭД', 'Валютный контроль', 'Оптимизация логистики', 'Работа с контрактами', 'Сопровождение проверок'],
           included: ['Первичная консультация', 'Анализ документов', 'Письменное заключение', 'Поддержка сделки']
         },
         delivery: {
-          title: 'Доставка до двери', icon: '🚚', price: 'от ₸ 38 000',
+          title: 'Доставка до двери', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg>', price: 'от ₸ 38 000',
           description: 'Автодоставка контейнера или сборного груза от терминала до вашего адреса',
           features: ['Доставка по всему Казахстану', 'Подача транспорта в срок', 'Погрузо-разгрузочные работы', 'Отслеживание в пути', 'Экспедирование', 'Доставка сборных грузов'],
           included: ['Подача авто', 'Доставка до адреса', 'Выгрузка', 'Документы о доставке']
@@ -1073,7 +1073,7 @@
         detail: `${document.querySelector('[name="container"]').value || ''} · ${document.querySelector('[name="weight"]').value || '—'} кг · заявка ${newId}`
       });
       persist();
-      pushNotif('📦', 'Заявка создана', `Заявка ${newId} принята в обработку. Менеджер свяжется с вами в течение 2 часов.`, 'shipment-detail', newId);
+      pushNotif('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', 'Заявка создана', `Заявка ${newId} принята в обработку. Менеджер свяжется с вами в течение 2 часов.`, 'shipment-detail', newId);
 
       this.reset();
       updateFormStep();
@@ -1252,7 +1252,7 @@
       if (method === 'invoice') {
         closeModal();
         downloadInvoice(id);
-        pushNotif('🧾', 'Счёт выставлен', `${invoiceNo(id)} на ${fmtKZT(s.price)} — ожидаем оплату по реквизитам`, 'shipment-detail', id);
+        pushNotif('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>', 'Счёт выставлен', `${invoiceNo(id)} на ${fmtKZT(s.price)} — ожидаем оплату по реквизитам`, 'shipment-detail', id);
         return;
       }
       if (method === 'card') {
@@ -1264,7 +1264,7 @@
       s.paid = true;
       persist();
       closeModal();
-      pushNotif('💳', 'Оплата получена', `Счёт ${invoiceNo(id)} на ${fmtKZT(s.price)} оплачен`, 'shipment-detail', id);
+      pushNotif('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>', 'Оплата получена', `Счёт ${invoiceNo(id)} на ${fmtKZT(s.price)} оплачен`, 'shipment-detail', id);
       if (APP_STATE.currentPage === 'shipment-detail') renderShipmentDetail(id);
       if (APP_STATE.currentPage === 'margin') renderMargin();
       showToast('success', 'Оплачено', 'Платёж проведён успешно');
@@ -1285,12 +1285,12 @@
     function callManager(name) {
       openModal('Связаться · ' + name, `
         <div style="text-align: center; padding: 8px 0 16px;">
-          <div style="width: 72px; height: 72px; margin: 0 auto 12px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 28px;">📞</div>
+          <div style="width: 72px; height: 72px; margin: 0 auto 12px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 28px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.78.66 2.62a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.46-1.23a2 2 0 0 1 2.11-.45c.84.32 1.72.54 2.62.66A2 2 0 0 1 22 16.92z"/></svg></div>
           <div style="font-weight: 600; font-size: 18px; margin-bottom: 4px;">${name}</div>
           <div style="color: var(--muted); font-size: 14px;">Пн–Пт 9:00–18:00 (GMT+5)</div>
         </div>
         <a class="btn btn-primary btn-lg" style="width: 100%; margin-bottom: 10px; display: flex; justify-content: center; text-decoration: none;" href="tel:${OFFICE_PHONE.replace(/\s/g, '')}">Позвонить ${OFFICE_PHONE}</a>
-        <button class="btn btn-secondary btn-lg" style="width: 100%;" onclick="closeModal(); messageManager('${name}')">💬 Написать в чат</button>`);
+        <button class="btn btn-secondary btn-lg" style="width: 100%;" onclick="closeModal(); messageManager('${name}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Написать в чат</button>`);
     }
     function chatKey(name) { return String(name).replace(/[^\wа-яА-ЯёЁ]+/g, '_'); }
     function loadChats() { try { APP_STATE.chats = JSON.parse(localStorage.getItem('exim-chats') || '{}'); } catch (e) { APP_STATE.chats = {}; } }
@@ -1388,7 +1388,7 @@
             created: new Date().toLocaleDateString('ru-RU'), status: 'new', detail: 'Заказ через каталог услуг'
           });
           persist();
-          pushNotif('🧾', 'Заявка на услугу отправлена', title + ' — менеджер свяжется с вами в ближайшее время', null, null);
+          pushNotif('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>', 'Заявка на услугу отправлена', title + ' — менеджер свяжется с вами в ближайшее время', null, null);
           showToast('success', 'Заявка отправлена', 'Менеджер свяжется с вами в ближайшее время');
           return;
         }
@@ -1607,7 +1607,7 @@
               <span style="font-size:12px;color:var(--muted);">${c.year} г.</span>
             </div>
             <div style="font-weight:700;font-size:17px;">${c.typeLabel}</div>
-            <div style="font-size:13px;color:var(--muted);">📍 ${c.city} · ${c.condition}</div>
+            <div style="font-size:13px;color:var(--muted);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${c.city} · ${c.condition}</div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
               <span class="mono" style="font-size:20px;font-weight:700;color:var(--accent);">${fmtKZT(c.price)}</span>
               <span class="svc-arrow">→</span>
@@ -1652,7 +1652,7 @@
               ${c.status === 'available'
                 ? `<button class="btn btn-primary btn-lg" onclick="buyContainer('${c.id}')">Купить · оставить заявку</button>`
                 : `<button class="btn btn-secondary btn-lg" disabled aria-disabled="true">${st.label}</button>`}
-              <button class="btn btn-secondary btn-lg" onclick="callManager('Отдел контейнеров')">📞 Связаться</button>
+              <button class="btn btn-secondary btn-lg" onclick="callManager('Отдел контейнеров')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.78.66 2.62a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.46-1.23a2 2 0 0 1 2.11-.45c.84.32 1.72.54 2.62.66A2 2 0 0 1 22 16.92z"/></svg> Связаться</button>
             </div>
           </div>
         </div>`;
@@ -1752,7 +1752,7 @@
           <div style="display:flex;flex-direction:column;gap:6px;min-width:150px;">
             ${r.status === 'new' ? `<button class="btn btn-primary btn-sm" onclick="acceptRequest('${r.id}')">Принять в работу</button>` : ''}
             ${r.status === 'progress' ? `<button class="btn btn-primary btn-sm" onclick="closeRequest('${r.id}')">Закрыть заявку</button>` : ''}
-            <button class="btn btn-secondary btn-sm" onclick="messageManager('${r.client}')">💬 Клиенту</button>
+            <button class="btn btn-secondary btn-sm" onclick="messageManager('${r.client}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Клиенту</button>
           </div>
         </div>`;
       }).join('') || `<div style="padding:40px;color:var(--muted);text-align:center;">Нет заявок по фильтру</div>`;

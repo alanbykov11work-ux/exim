@@ -83,8 +83,24 @@ export default function EximApp({ user }: { user: EximUser }) {
     };
 
     // --- документы (Supabase Storage, приватный бакет documents) ---
+    // Ключи Storage не принимают кириллицу — транслитерируем имя файла
+    const TR: Record<string, string> = {
+      а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh",
+      з: "z", и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o",
+      п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "ts",
+      ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu",
+      я: "ya", қ: "k", ғ: "g", ң: "n", ү: "u", ұ: "u", һ: "h", ө: "o",
+      ә: "a", і: "i",
+    };
     const sanitize = (n: string) =>
-      n.replace(/[^\wа-яА-ЯёЁ.\- ]+/g, "_").replace(/\s+/g, " ").trim();
+      n
+        .toLowerCase()
+        .split("")
+        .map((ch) => (TR[ch] !== undefined ? TR[ch] : ch))
+        .join("")
+        .replace(/[^a-z0-9.\-_]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "") || "file";
     window.__EXIM_DOCS = {
       async list(folder: string) {
         const { data, error } = await supabase.storage

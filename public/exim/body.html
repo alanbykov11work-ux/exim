@@ -358,10 +358,12 @@
               <div class="form-group">
                 <label class="form-label">Контейнер</label>
                 <div class="chips">
+                  <div id="cargo-pool-chips">
                   <div class="chip active" onclick="selectContainer(this, '20dc')">20' DC</div>
                   <div class="chip" onclick="selectContainer(this, '40dc')">40' DC</div>
                   <div class="chip" onclick="selectContainer(this, '40hc')">40' HC</div>
                   <div class="chip" onclick="selectContainer(this, 'reefer')">Reefer</div>
+                  </div>
                 </div>
                 <input type="hidden" name="container" value="20dc">
               </div>
@@ -544,7 +546,8 @@
 
           <div style="display: flex; gap: 12px; justify-content: center;">
             <button class="btn btn-secondary" onclick="navigate('dashboard')">На главную</button>
-            <button class="btn btn-primary" onclick="navigate('shipments')">Мои перевозки</button>
+            <button class="btn btn-secondary" onclick="navigate('tracking', null, document.getElementById('new-shipment-id').textContent)">Отследить груз</button>
+            <button class="btn btn-primary" onclick="navigate('shipment-detail', null, document.getElementById('new-shipment-id').textContent)">Открыть заявку</button>
           </div>
         </div>
       </div>

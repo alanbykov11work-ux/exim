@@ -3000,3 +3000,22 @@ body[data-theme="dark"] .app-sidebar { background: #101216; }
 .svc-ic { display: grid; place-items: center; }
 body[data-theme="dark"] .dash-link-icon svg, body[data-theme="dark"] .svc-ic svg { color: #fff; }
 .rd-promo svg { color: #fff; width: 30px; height: 30px; }
+
+/* ===== Тёмная тема: фиксы поверх графитовых переопределений ===== */
+body[data-theme="dark"] .role-switcher { background: rgba(255,255,255,0.06) !important; }
+body[data-theme="dark"] .role-switcher button { color: rgba(255,255,255,0.7); }
+body[data-theme="dark"] .role-switcher button.active { background: #2A2E3C !important; color: #fff !important; }
+body[data-theme="dark"] .rd-tab { color: rgba(255,255,255,0.7); }
+body[data-theme="dark"] .rd-tab.active { background: var(--accent) !important; color: #fff !important; }
+body[data-theme="dark"] .card, body[data-theme="dark"] .rd-card { border-color: rgba(255,255,255,0.08); }
+body[data-theme="dark"] .dash-link { background: #15171F; color: var(--fg); }
+body[data-theme="dark"] .dash-link .dash-link-icon { background: rgba(255,255,255,0.06); }
+body[data-theme="dark"] .table td, body[data-theme="dark"] .table th { color: var(--fg); }
+body[data-theme="dark"] .table th { color: var(--muted); }
+body[data-theme="dark"] .pill.pill-info { color: #cfd6e4; }
+body[data-theme="dark"] .empty-title { color: var(--fg); }
+body[data-theme="dark"] .hdr-search input { color: var(--fg); }
+body[data-theme="dark"] .modal-content, body[data-theme="dark"] .modal-title { color: var(--fg); }
+body[data-theme="dark"] .rd-slot-time { color: var(--muted); }
+body[data-theme="dark"] .rd-slot-chip { color: var(--fg); }
+body[data-theme="dark"] .svc-h, body[data-theme="dark"] .card-title, body[data-theme="dark"] .rd-h1, body[data-theme="dark"] .display { color: var(--fg); }

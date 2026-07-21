@@ -20,6 +20,61 @@
       { idx: 5, key: 'delivered', label: 'Доставлено', addr: 'ул. Тлендиева, 92', lat: 43.2500, lng: 76.8700, mx: 165, my: 175, city: 'Алматы' }
     ];
 
+    const CITY_GEO = {
+      'алматы':   { lat: 43.2389, lng: 76.8897 },
+      'астана':   { lat: 51.1605, lng: 71.4704 },
+      'шымкент':  { lat: 42.3417, lng: 69.5901 },
+      'караганда':{ lat: 49.8047, lng: 73.1094 },
+      'актобе':   { lat: 50.2839, lng: 57.1670 },
+      'атырау':   { lat: 47.0945, lng: 51.9238 },
+      'актау':    { lat: 43.6410, lng: 51.1985 },
+      'уральск':  { lat: 51.2333, lng: 51.3667 },
+      'тараз':    { lat: 42.9000, lng: 71.3667 },
+      'павлодар': { lat: 52.2871, lng: 76.9674 },
+      'гуанчжоу': { lat: 23.1291, lng: 113.2644 },
+      'шэньчжэнь':{ lat: 22.5431, lng: 114.0579 },
+      'пекин':    { lat: 39.9042, lng: 116.4074 },
+      'шанхай':   { lat: 31.2304, lng: 121.4737 },
+      'иу':       { lat: 29.3068, lng: 120.0750 },
+      'урумчи':   { lat: 43.8256, lng: 87.6168 },
+      'сиань':    { lat: 34.3416, lng: 108.9398 },
+      'хоргос':   { lat: 44.2110, lng: 80.4160 },
+      'достык':   { lat: 45.2500, lng: 82.4833 },
+      'москва':   { lat: 55.7558, lng: 37.6173 },
+      'казань':   { lat: 55.7963, lng: 49.1088 },
+      'омск':     { lat: 54.9885, lng: 73.3242 },
+      'ташкент':  { lat: 41.2995, lng: 69.2401 },
+      'бишкек':   { lat: 42.8746, lng: 74.5698 },
+      'стамбул':  { lat: 41.0082, lng: 28.9784 },
+      'тбилиси':  { lat: 41.7151, lng: 44.8271 },
+      'урал':     { lat: 51.2333, lng: 51.3667 }
+    };
+    function cityGeo(name) {
+      if (!name) return null;
+      const k = String(name).toLowerCase().trim();
+      for (const key in CITY_GEO) { if (k.includes(key)) return CITY_GEO[key]; }
+      return null;
+    }
+    // Маршрут заявки: реальные города вместо шаблонного примера
+    function shipmentRoute(ship) {
+      if (ship && ship.route && ship.route.length) return ship.route;
+      const o = cityGeo(ship && ship.origin), d = cityGeo(ship && ship.destination);
+      if (!o || !d) return STATUSES; // не знаем координат — показываем типовой маршрут
+      const oName = ship.origin, dName = ship.destination;
+      // промежуточная точка: Хоргос для Китая, иначе середина пути
+      const viaChina = /гуанчжоу|шэньчжэнь|пекин|шанхай|иу|урумчи|сиань|китай/i.test(oName + ' ' + dName);
+      const via = viaChina ? { lat: 44.2110, lng: 80.4160, city: 'Хоргос' }
+                           : { lat: (o.lat + d.lat) / 2, lng: (o.lng + d.lng) / 2, city: 'В пути' };
+      return [
+        { idx: 0, key: 'pending',  label: 'Подготовка документов', addr: 'Отправление: ' + oName, lat: o.lat, lng: o.lng, city: oName },
+        { idx: 1, key: 'loading',  label: 'Загрузка',              addr: oName,                    lat: o.lat, lng: o.lng, city: oName },
+        { idx: 2, key: 'transit',  label: 'В пути',                addr: via.city,                 lat: via.lat, lng: via.lng, city: via.city },
+        { idx: 3, key: 'customs',  label: viaChina ? 'На таможне (Хоргос)' : 'Транзитный пункт', addr: via.city, lat: via.lat, lng: via.lng, city: via.city },
+        { idx: 4, key: 'customs-cleared', label: 'Прибытие в город назначения', addr: dName,      lat: d.lat, lng: d.lng, city: dName },
+        { idx: 5, key: 'delivered', label: 'Доставлено',           addr: 'Доставка: ' + dName,     lat: d.lat, lng: d.lng, city: dName }
+      ];
+    }
+
     // ===== Navigation =====
     function navigate(page, event, id = null) {
       if (event) {
@@ -35,6 +90,7 @@
       APP_STATE.currentPage = page;
       if (id) {
         if (page === 'shipment-detail') APP_STATE.selectedShipmentId = id;
+        if (page === 'tracking') APP_STATE.trackingId = id;
         if (page === 'service-detail') APP_STATE.selectedServiceId = id;
         if (page === 'container-detail') APP_STATE.selectedContainerId = id;
       }
@@ -384,7 +440,7 @@
           <div class="card">
             <h3 class="card-title" style="margin-bottom: 20px;">Хронология</h3>
             <div class="timeline">
-              ${STATUSES.map((st, idx) => `
+              ${shipmentRoute(ship).map((st, idx) => `
                 <div class="timeline-item ${idx < ship.statusIdx ? 'done' : idx === ship.statusIdx ? 'current' : ''}">
                   <div class="timeline-dot"></div>
                   <div class="timeline-title">${st.label}</div>
@@ -456,7 +512,9 @@
     }
 
     function renderTracking() {
-      const ship = APP_STATE.shipments.find(s => s.status !== 'delivered');
+      const actives = APP_STATE.shipments.filter(s => s.status !== 'delivered');
+      const ship = actives.find(s => s.id === APP_STATE.trackingId) || actives[0];
+      if (ship) APP_STATE.trackingId = ship.id;
       if (!ship) {
         document.getElementById('tracking-content').innerHTML = `
           <div class="empty-state">
@@ -468,7 +526,11 @@
         return;
       }
 
-      document.getElementById('tracking-content').innerHTML = `
+      const switcher = actives.length > 1
+        ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">' + actives.map(s =>
+            '<button class="rd-tab ' + (s.id === ship.id ? 'active' : '') + '" onclick="APP_STATE.trackingId=\'' + s.id + '\';renderTracking();">' + s.id + ' · ' + (s.destination || '') + '</button>').join('') + '</div>'
+        : '';
+      document.getElementById('tracking-content').innerHTML = switcher + `
         <div class="card" style="border-left: 3px solid var(--accent); margin-bottom: 24px;">
           <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
             <div>
@@ -498,7 +560,7 @@
             </div>
             <div style="text-align: center;">
               <div style="font-size: 13px; color: var(--muted); margin-bottom: 4px;">Текущий статус</div>
-              <div style="font-size: 16px; font-weight: 600;">${STATUSES[ship.statusIdx].label}</div>
+              <div style="font-size: 16px; font-weight: 600;">${shipmentRoute(ship)[ship.statusIdx].label}</div>
             </div>
             <div style="text-align: center;">
               <div style="font-size: 13px; color: var(--muted); margin-bottom: 4px;">До прибытия</div>
@@ -510,7 +572,7 @@
         <div class="card">
           <h3 class="card-title" style="margin-bottom: 20px;">Детальная хронология</h3>
           <div class="timeline">
-            ${STATUSES.map((st, idx) => `
+            ${shipmentRoute(ship).map((st, idx) => `
               <div class="timeline-item ${idx < ship.statusIdx ? 'done' : idx === ship.statusIdx ? 'current' : ''}">
                 <div class="timeline-dot"></div>
                 <div class="timeline-title">${st.label}</div>
@@ -527,6 +589,7 @@
     // ===== Real map (Leaflet) =====
     let TRACK_MAP = null;
     function initLeafletMap(ship) {
+      var ROUTE = shipmentRoute(ship);
       const el = document.getElementById('track-map');
       if (!el) return;
       if (!window.L) { setTimeout(function() { initLeafletMap(ship); }, 200); return; }
@@ -539,17 +602,17 @@
         : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
         { maxZoom: 19, attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
       const cur = ship.statusIdx;
-      const pts = STATUSES.map(function(s) { return [s.lat, s.lng]; });
+      const pts = ROUTE.map(function(s) { return [s.lat, s.lng]; });
       L.polyline(pts, { color: '#94A3B8', weight: 3, dashArray: '4 10', opacity: 0.8 }).addTo(map);
       L.polyline(pts.slice(0, cur + 1), { color: '#E11D48', weight: 4 }).addTo(map);
-      STATUSES.forEach(function(s, i) {
+      ROUTE.forEach(function(s, i) {
         const done = i < cur, current = i === cur;
         const color = done ? '#15803D' : current ? '#E11D48' : '#94A3B8';
         const m = L.circleMarker([s.lat, s.lng], { radius: current ? 9 : 6, color: '#fff', weight: 2.5, fillColor: color, fillOpacity: 1 }).addTo(map);
         const state = done ? '<span style="color:#15803D;font-weight:600;">Пройдено</span>' : current ? '<span style="color:#E11D48;font-weight:600;">Груз здесь сейчас</span>' : '<span style="color:#94A3B8;font-weight:600;">Ожидается</span>';
         m.bindPopup('<div style="min-width:170px;"><div style="font-weight:700;margin-bottom:2px;">' + s.city + '</div><div style="font-size:12px;color:#64748B;margin-bottom:6px;">' + s.label + ' · ' + s.addr + '</div>' + state + '</div>');
       });
-      const c = STATUSES[cur];
+      const c = ROUTE[cur];
       L.marker([c.lat, c.lng], {
         icon: L.divIcon({ className: '', html: '<div class="cargo-pin"><div class="cargo-pulse"></div><div class="cargo-dot"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg></div></div>', iconSize: [46, 46], iconAnchor: [23, 23] }),
         zIndexOffset: 1000
@@ -558,8 +621,8 @@
     }
     function leafletCenterCargo() {
       if (!TRACK_MAP) return;
-      const s = APP_STATE.shipments.find(function(x) { return x.status !== 'delivered'; });
-      const c = STATUSES[(s && s.statusIdx) || 0];
+      const s = (APP_STATE.trackingId && APP_STATE.shipments.find(function(x) { return x.id === APP_STATE.trackingId; })) || APP_STATE.shipments.find(function(x) { return x.status !== 'delivered'; });
+      const c = shipmentRoute(s)[(s && s.statusIdx) || 0];
       TRACK_MAP.flyTo([c.lat, c.lng], 8, { duration: 0.9 });
     }
 
@@ -570,7 +633,7 @@
       const world = document.getElementById('track-world');
       if (!stage || !world) return;
 
-      const stops = STATUSES;
+      const stops = shipmentRoute(ship);
       const cur = ship.statusIdx;
 
       // Build a smooth route polyline through all stops
@@ -636,7 +699,7 @@
 
     function mapCenterCargo() {
       if (!MAP) return;
-      const c = STATUSES[MAP.ship.statusIdx];
+      const c = shipmentRoute(MAP.ship)[MAP.ship.statusIdx];
       MAP.scale = Math.min(MAP.max, Math.max(MAP.scale, 1.15));
       MAP.tx = MAP.stage.clientWidth / 2 - c.mx * MAP.scale;
       MAP.ty = MAP.stage.clientHeight / 2 - c.my * MAP.scale;
@@ -656,7 +719,7 @@
     }
 
     function mapPopup(i) {
-      const s = STATUSES[i], cur = MAP.ship.statusIdx;
+      const s = shipmentRoute(MAP.ship)[i], cur = MAP.ship.statusIdx;
       const state = i < cur ? { t: 'Пройдено', c: '#15803D' } : i === cur ? { t: 'Груз здесь сейчас', c: '#E11D48' } : { t: 'Ожидается', c: '#94A3B8' };
       const pop = document.getElementById('track-popup');
       document.getElementById('track-popup-body').innerHTML = `
@@ -932,7 +995,29 @@
     }
 
     // ===== Form Helpers =====
+    const CARGO_POOLS = {
+      // контейнерные виды
+      sea:  { label: 'Тип контейнера', chips: [["20dc","20' DC"],["40dc","40' DC"],["40hc","40' HC"],["reefer","Reefer"]] },
+      rail: { label: 'Тип контейнера', chips: [["20dc","20' DC"],["40dc","40' DC"],["40hc","40' HC"],["reefer","Reefer"]] },
+      // авто: без контейнера — тип загрузки
+      truck: { label: 'Тип загрузки', chips: [["ftl","Полная фура (FTL)"],["ltl","Консолидация (сборный)"],["reefer-truck","Рефрижератор"],["oversize","Негабарит"]] },
+      // авиа
+      air:  { label: 'Тип груза', chips: [["consol","Сборный груз"],["pallets","Паллеты"],["express","Экспресс"],["dg","Опасный груз (DG)"]] }
+    };
+    function renderCargoPool(method) {
+      const box = document.getElementById('cargo-pool-chips');
+      if (!box) return;
+      const pool = CARGO_POOLS[method] || CARGO_POOLS.sea;
+      const lbl = box.closest('.form-group') ? box.closest('.form-group').querySelector('.form-label') : null;
+      if (lbl) lbl.textContent = pool.label;
+      box.innerHTML = pool.chips.map(function(c, i) {
+        return '<div class="chip ' + (i === 0 ? 'active' : '') + '" onclick="selectContainer(this, \'' + c[0] + '\')">' + c[1] + '</div>';
+      }).join('');
+      const inp = document.querySelector('[name="container"]');
+      if (inp) inp.value = pool.chips[0][1];
+    }
     function selectShippingMethod(el, method) {
+      renderCargoPool(method);
       el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
       el.classList.add('active');
       document.querySelector('[name="shipping-method"]').value = method;
@@ -1444,7 +1529,7 @@
       }
     }
     function addShipmentDoc(shipId) {
-      if (!window.__EXIM_DOCS) return;
+      if (!window.__EXIM_DOCS) { showToast('warning', 'Хранилище не подключено', 'Обновите страницу (Cmd+Shift+R) и попробуйте снова'); return; }
       const picker = document.createElement('input');
       picker.type = 'file';
       picker.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';
@@ -1505,7 +1590,7 @@
       }
     }
     function addProfileDoc() {
-      if (!window.__EXIM_DOCS) return;
+      if (!window.__EXIM_DOCS) { showToast('warning', 'Хранилище не подключено', 'Обновите страницу (Cmd+Shift+R) и попробуйте снова'); return; }
       const picker = document.createElement('input');
       picker.type = 'file';
       picker.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';

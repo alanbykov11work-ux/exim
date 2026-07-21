@@ -63,7 +63,6 @@ function VerifyInner() {
       <AuthHero />
       <div className="auth-form-wrap">
         <div className="auth-card" style={{ textAlign: "center" }}>
-          <div className="verify-icon">✉️</div>
           <span className="eyebrow">Верификация</span>
           <h2>Подтвердите почту</h2>
           <p style={{ color: "var(--muted)", fontSize: 14.5, marginBottom: 20 }}>
@@ -82,12 +81,7 @@ function VerifyInner() {
             Я подтвердил — продолжить
           </button>
           <div style={{ height: 10 }} />
-          <button
-            className="btn btn-lg"
-            style={{ background: "#f1efe9", color: "var(--ink)" }}
-            onClick={resend}
-            disabled={busy}
-          >
+          <button className="btn btn-quiet btn-lg" onClick={resend} disabled={busy}>
             Отправить письмо ещё раз
           </button>
 

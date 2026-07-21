@@ -24,7 +24,7 @@
   <header class="app-header">
     <div class="hdr-search">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input id="hdr-search-input" placeholder="Поиск по номеру заявки, например EX-3819…" onkeydown="if (event.key === 'Enter') headerSearch()">
+      <input id="hdr-search-input" placeholder="Поиск по номеру заявки…" onkeydown="if (event.key === 'Enter') headerSearch()">
     </div>
 
     <div class="app-actions">
@@ -136,8 +136,7 @@
           <!-- RIGHT -->
           <div>
             <span class="eyebrow">Статус</span>
-            <div class="display" style="font-size: 24px; margin-bottom: 4px;">У вас <span style="color: var(--accent);" class="mono">5 дней</span></div>
-            <div class="display" style="font-size: 24px; margin-bottom: 18px;">без задержек</div>
+            <div id="rd-status-line" class="display" style="font-size: 24px; margin-bottom: 18px;">Добро пожаловать!</div>
 
             <div class="rd-card" style="padding: 18px 20px; margin-bottom: 20px;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -149,12 +148,7 @@
               </div>
               <div class="rd-week" id="rd-week"></div>
 
-              <div style="margin-top: 12px;">
-                <div class="rd-slot"><span class="rd-slot-time">10:00</span><span class="rd-slot-chip">Загрузка · Порт Шэньчжэнь</span></div>
-                <div class="rd-slot"><span class="rd-slot-time">12:00</span><span class="rd-slot-chip amber">Досмотр EX-3819 · Хоргос</span></div>
-                <div class="rd-slot"><span class="rd-slot-time">14:00</span><span class="rd-slot-chip blue">Оплата счёта INV-0342</span></div>
-                <div class="rd-slot"><span class="rd-slot-time">16:00</span><span class="rd-slot-chip">Прибытие EX-2947 · Алматы-1</span></div>
-              </div>
+              <div style="margin-top: 12px;" id="rd-slots"></div>
             </div>
 
             <div class="rd-promo">
@@ -764,65 +758,7 @@
         </div>
 
         <div class="card" id="notif-list">
-          <div style="font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">
-            Сегодня
-          </div>
-
-          <div onclick="navigate('shipment-detail', null, 'EX-3819')" style="padding: 16px; background: rgba(225, 29, 72, 0.04); border-radius: var(--radius); border-left: 3px solid var(--accent); margin-bottom: 12px; cursor: pointer;">
-            <div style="display: flex; gap: 12px;">
-              <div style="font-size: 24px;">📦</div>
-              <div style="flex: 1;">
-                <div style="font-weight: 600; margin-bottom: 4px;">Груз прибыл на таможню</div>
-                <div style="font-size: 14px; color: var(--muted); margin-bottom: 8px;">
-                  Заявка EX-3819 прибыла на таможенный терминал Хоргос. Ожидается досмотр.
-                </div>
-                <div style="font-size: 12px; color: var(--muted);">2 часа назад</div>
-              </div>
-            </div>
-          </div>
-
-          <div onclick="navigate('shipment-detail', null, 'EX-2947')" style="padding: 16px; background: var(--bg); border-radius: var(--radius); margin-bottom: 12px; cursor: pointer;">
-            <div style="display: flex; gap: 12px;">
-              <div style="font-size: 24px;">📄</div>
-              <div style="flex: 1;">
-                <div style="font-weight: 600; margin-bottom: 4px;">Документы готовы</div>
-                <div style="font-size: 14px; color: var(--muted); margin-bottom: 8px;">
-                  Коносамент и CMR для заявки EX-2947 готовы к скачиванию
-                </div>
-                <div style="font-size: 12px; color: var(--muted);">5 часов назад</div>
-              </div>
-            </div>
-          </div>
-
-          <div style="font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 24px 0 16px;">
-            Вчера
-          </div>
-
-          <div onclick="navigate('shipment-detail', null, 'EX-3819')" style="padding: 16px; background: var(--bg); border-radius: var(--radius); margin-bottom: 12px; cursor: pointer;">
-            <div style="display: flex; gap: 12px;">
-              <div style="font-size: 24px;">💰</div>
-              <div style="flex: 1;">
-                <div style="font-weight: 600; margin-bottom: 4px;">Счёт на оплату</div>
-                <div style="font-size: 14px; color: var(--muted); margin-bottom: 8px;">
-                  Счёт INV-2025-0342 на сумму $4,280 ожидает оплаты
-                </div>
-                <div style="font-size: 12px; color: var(--muted);">1 день назад</div>
-              </div>
-            </div>
-          </div>
-
-          <div onclick="navigate('shipments')" style="padding: 16px; background: var(--bg); border-radius: var(--radius); cursor: pointer;">
-            <div style="display: flex; gap: 12px;">
-              <div style="font-size: 24px;">👤</div>
-              <div style="flex: 1;">
-                <div style="font-weight: 600; margin-bottom: 4px;">Назначен менеджер</div>
-                <div style="font-size: 14px; color: var(--muted); margin-bottom: 8px;">
-                  Ваша заявка EX-9842 назначена менеджеру Айгуль Серикбаевой
-                </div>
-                <div style="font-size: 12px; color: var(--muted);">1 день назад</div>
-              </div>
-            </div>
-          </div>
+          <div style="padding:40px;text-align:center;color:var(--muted);">Нет уведомлений</div>
         </div>
       </div>
 
@@ -887,38 +823,17 @@
 
           <table class="table">
             <thead>
-              <tr>
-                <th>Документ</th>
-                <th>Тип</th>
-                <th>Дата загрузки</th>
-                <th></th>
-              </tr>
+              <tr><th>Документ</th><th>Тип</th><th>Дата загрузки</th><th></th></tr>
             </thead>
-            <tbody>
-              <tr>
-                <td>Свидетельство о регистрации</td>
-                <td><span class="pill pill-info">PDF</span></td>
-                <td>12.05.2025</td>
-                <td><button class="btn btn-ghost btn-sm">Скачать</button></td>
-              </tr>
-              <tr>
-                <td>Устав компании</td>
-                <td><span class="pill pill-info">PDF</span></td>
-                <td>12.05.2025</td>
-                <td><button class="btn btn-ghost btn-sm">Скачать</button></td>
-              </tr>
-              <tr>
-                <td>Доверенность на подпись</td>
-                <td><span class="pill pill-info">PDF</span></td>
-                <td>15.06.2025</td>
-                <td><button class="btn btn-ghost btn-sm">Скачать</button></td>
-              </tr>
+            <tbody id="profile-docs-body">
+              <tr><td colspan="4" style="color:var(--muted);text-align:center;padding:24px;">Загрузка…</td></tr>
             </tbody>
           </table>
 
-          <button class="btn btn-secondary" style="margin-top: 16px;" onclick="showToast('info','Загрузка документа','Выберите файл для добавления в профиль')">
+          <button class="btn btn-secondary" style="margin-top: 16px;" onclick="addProfileDoc()">
             + Добавить документ
           </button>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:10px;">PDF, JPG, PNG, DOCX, XLSX — до 50 МБ. Файлы хранятся в защищённом облаке.</div>
         </div>
 
         <div class="card" style="margin-top: 24px;">

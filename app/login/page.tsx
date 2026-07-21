@@ -127,6 +127,12 @@ function LoginInner() {
           <div className="auth-alt">
             Нет аккаунта? <Link href="/register">Зарегистрироваться</Link>
           </div>
+
+          <div className="auth-foot">
+            ТОО EXIM KZ · Алматы, ул. Чаплина, 71, БЦ «Станица», офис 620
+            <br />
+            +7 700 494 94 99 · info@exim-trans.kz
+          </div>
         </form>
       </div>
     </div>

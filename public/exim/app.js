@@ -53,7 +53,7 @@
         if (navItem) navItem.classList.add('active');
 
         // Populate content if needed
-        if (page === 'dashboard') renderDashboardShipments();
+        if (page === 'dashboard') { renderDashboardShipments(); renderRdStatus(); }
         if (page === 'shipments') renderShipmentsList();
         if (page === 'shipment-detail') renderShipmentDetail(id);
         if (page === 'tracking') renderTracking();
@@ -154,6 +154,30 @@
       loading:   { cls: 'rd-s-loading', label: 'Загрузка' },
       pending:   { cls: 'rd-s-prep', label: 'Подготовка' }
     };
+
+    function renderRdStatus() {
+      const all = APP_STATE.shipments || [];
+      const active = all.filter(s => s.status !== 'delivered');
+      const line = document.getElementById('rd-status-line');
+      if (line) {
+        if (!all.length) line.innerHTML = 'Начните первую <span style="color: var(--accent);">перевозку</span>';
+        else if (!active.length) line.innerHTML = 'Все грузы <span style="color: var(--accent);">доставлены</span>';
+        else line.innerHTML = 'У вас <span style="color: var(--accent);" class="mono">' + active.length + '</span> ' + (active.length === 1 ? 'активный груз' : (active.length < 5 ? 'активных груза' : 'активных грузов')) + ',<br>задержек нет';
+      }
+      const box = document.getElementById('rd-slots');
+      if (box) {
+        if (!active.length) {
+          box.innerHTML = '<div style="padding:14px 4px;color:var(--muted);font-size:13.5px;">Событий на сегодня нет</div>';
+        } else {
+          const times = ['10:00', '12:00', '14:00', '16:00'];
+          box.innerHTML = active.slice(0, 4).map((s, i) => {
+            const st = STATUSES.find(x => x.key === s.status) || STATUSES[0];
+            const cls = s.status === 'customs' ? ' amber' : (s.status === 'pending' ? ' blue' : '');
+            return '<div class="rd-slot"><span class="rd-slot-time">' + times[i] + '</span><span class="rd-slot-chip' + cls + '">' + st.label + ' · ' + s.id + '</span></div>';
+          }).join('');
+        }
+      }
+    }
 
     function rdWeek(dir) {
       APP_STATE.weekOffset = (APP_STATE.weekOffset || 0) + dir;
@@ -1073,6 +1097,7 @@
         Object.keys(map).forEach(function(id) { const el = document.getElementById(id); if (el && map[id]) el.value = map[id]; });
       } catch (e) {}
       applyProfileToHeader();
+      renderProfileDocs();
     }
     function applyProfileToHeader() {
       const p = APP_STATE.profile || {};
@@ -1368,6 +1393,71 @@
         picker.click();
       }
     });
+
+
+    // ===== Документы профиля (Supabase Storage) =====
+    async function renderProfileDocs() {
+      const body = document.getElementById('profile-docs-body');
+      if (!body || !window.__EXIM_DOCS) return;
+      try {
+        const files = await window.__EXIM_DOCS.list('profile');
+        if (!files.length) {
+          body.innerHTML = '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:24px;">Документов пока нет — добавьте первый</td></tr>';
+          return;
+        }
+        body.innerHTML = files.map(function(f) {
+          const ext = (f.name.split('.').pop() || '').toUpperCase().slice(0, 5);
+          const d = f.created_at ? new Date(f.created_at).toLocaleDateString('ru-RU') : '—';
+          const shown = f.name.replace(/^\d+_/, '');
+          return '<tr>' +
+            '<td>' + shown + '</td>' +
+            '<td><span class="pill pill-info">' + ext + '</span></td>' +
+            '<td>' + d + '</td>' +
+            '<td style="white-space:nowrap;">' +
+              '<button class="btn btn-ghost btn-sm" onclick="dlProfileDoc(\'' + f.name + '\')">Скачать</button> ' +
+              '<button class="btn btn-ghost btn-sm" style="color:var(--accent);" onclick="rmProfileDoc(\'' + f.name + '\')">Удалить</button>' +
+            '</td></tr>';
+        }).join('');
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:24px;">Не удалось загрузить список документов</td></tr>';
+      }
+    }
+    function addProfileDoc() {
+      if (!window.__EXIM_DOCS) return;
+      const picker = document.createElement('input');
+      picker.type = 'file';
+      picker.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';
+      picker.onchange = async function() {
+        if (!picker.files.length) return;
+        const file = picker.files[0];
+        if (file.size > 50 * 1024 * 1024) { showToast('warning', 'Файл слишком большой', 'Максимальный размер — 50 МБ'); return; }
+        showToast('info', 'Загрузка…', file.name);
+        try {
+          await window.__EXIM_DOCS.upload(file, 'profile');
+          showToast('success', 'Документ загружен', file.name);
+          renderProfileDocs();
+        } catch (e) {
+          showToast('danger', 'Ошибка загрузки', (e && e.message) || 'Попробуйте ещё раз');
+        }
+      };
+      picker.click();
+    }
+    async function dlProfileDoc(name) {
+      try {
+        const url = await window.__EXIM_DOCS.signedUrl('profile/' + name);
+        const a = document.createElement('a');
+        a.href = url; a.download = name.replace(/^\d+_/, ''); a.target = '_blank';
+        document.body.appendChild(a); a.click(); a.remove();
+      } catch (e) { showToast('danger', 'Ошибка', 'Не удалось получить файл'); }
+    }
+    async function rmProfileDoc(name) {
+      if (!confirm('Удалить документ?')) return;
+      try {
+        await window.__EXIM_DOCS.remove('profile/' + name);
+        showToast('success', 'Удалено', 'Документ удалён');
+        renderProfileDocs();
+      } catch (e) { showToast('danger', 'Ошибка', 'Не удалось удалить'); }
+    }
 
     // ===== Persistence =====
     const KZT_RATE = 475;

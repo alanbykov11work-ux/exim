@@ -3,41 +3,45 @@ export default function AuthHero() {
   return (
     <div className="auth-hero">
       <div className="brand">
-        <img
-          src="/logo.png"
-          alt="EXIM"
-          style={{
-            height: 40,
-            background: "#fff",
-            borderRadius: 11,
-            padding: "6px 10px",
-          }}
-        />
-      </div>
-      <div style={{ zIndex: 1 }}>
-        <div className="mono">{"// SUPER APP"}</div>
-        <h1>
-          Груз под контролем,
+        <img src="/logo.png" alt="EXIM KZ" />
+        <div className="brand-sub">
+          Транспортно-логистическая
           <br />
-          от порта до двери.
-        </h1>
-        <p>
-          Заявки на перевозку, отслеживание в реальном времени, каталог
-          контейнеров и прямая связь с менеджером — в одном приложении.
-        </p>
+          компания · Алматы
+        </div>
       </div>
-      <div className="stats">
+
+      <div className="hero-mid">
+        <div className="mono-xs kicker">Личный кабинет клиента</div>
+        <h1>Все перевозки, документы и счета — в одном окне.</h1>
+        <p className="hero-lead">
+          Авто, авиа, ЖД и мультимодальные перевозки, таможенное оформление и
+          складские услуги. Статус груза — в реальном времени.
+        </p>
+
+        <div className="route-line">
+          <span className="dot" />
+          <span>ГУАНЧЖОУ</span>
+          <span className="track" />
+          <span>ХОРГОС</span>
+          <span className="track" />
+          <span>АЛМАТЫ</span>
+          <span className="dot end" />
+        </div>
+      </div>
+
+      <div className="facts">
         <div>
-          <b>1 200+</b>
-          <i>перевозок</i>
+          <b>150+</b>
+          <span>партнёров по миру</span>
         </div>
         <div>
-          <b>18 дн</b>
-          <i>средний срок</i>
+          <b>15 мин</b>
+          <span>среднее время ответа</span>
         </div>
         <div>
-          <b>24/7</b>
-          <i>поддержка</i>
+          <b>100%</b>
+          <span>перевозок застраховано</span>
         </div>
       </div>
     </div>

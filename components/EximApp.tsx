@@ -19,6 +19,14 @@ declare global {
     __EXIM?: EximUser & { role: string };
     __EXIM_LOGOUT?: () => void;
     __EXIM_BOOTED?: boolean;
+    __EXIM_DOCS?: {
+      list: (
+        folder: string
+      ) => Promise<{ name: string; created_at?: string | null }[]>;
+      upload: (file: File, folder: string) => Promise<void>;
+      signedUrl: (path: string) => Promise<string>;
+      remove: (path: string) => Promise<void>;
+    };
   }
 }
 
@@ -72,6 +80,41 @@ export default function EximApp({ user }: { user: EximUser }) {
       } finally {
         window.location.href = "/login";
       }
+    };
+
+    // --- документы (Supabase Storage, приватный бакет documents) ---
+    const sanitize = (n: string) =>
+      n.replace(/[^\wа-яА-ЯёЁ.\- ]+/g, "_").replace(/\s+/g, " ").trim();
+    window.__EXIM_DOCS = {
+      async list(folder: string) {
+        const { data, error } = await supabase.storage
+          .from("documents")
+          .list(`${user.id}/${folder}`, {
+            sortBy: { column: "created_at", order: "desc" },
+          });
+        if (error) throw error;
+        return (data ?? []).filter((f) => f.name !== ".emptyFolderPlaceholder");
+      },
+      async upload(file: File, folder: string) {
+        const path = `${user.id}/${folder}/${Date.now()}_${sanitize(file.name)}`;
+        const { error } = await supabase.storage
+          .from("documents")
+          .upload(path, file, { upsert: false });
+        if (error) throw error;
+      },
+      async signedUrl(path: string) {
+        const { data, error } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(`${user.id}/${path}`, 300);
+        if (error || !data?.signedUrl) throw error ?? new Error("no url");
+        return data.signedUrl;
+      },
+      async remove(path: string) {
+        const { error } = await supabase.storage
+          .from("documents")
+          .remove([`${user.id}/${path}`]);
+        if (error) throw error;
+      },
     };
 
     // --- очередь синхронизации localStorage → Supabase ---

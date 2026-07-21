@@ -1,0 +1,213 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+export type EximUser = {
+  id: string;
+  email: string;
+  role: string;
+  fullName: string;
+  company: string;
+  phone: string;
+  bin: string;
+  verified: boolean;
+};
+
+declare global {
+  interface Window {
+    __EXIM?: EximUser & { role: string };
+    __EXIM_LOGOUT?: () => void;
+    __EXIM_BOOTED?: boolean;
+  }
+}
+
+/** Ключи состояния приложения, синхронизируемые с облаком */
+const SYNC_PREFIX = "exim-";
+
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("failed to load " + src));
+    document.body.appendChild(s);
+  });
+}
+
+function loadCss(href: string): Promise<void> {
+  return new Promise((resolve) => {
+    if (document.querySelector(`link[href="${href}"]`)) return resolve();
+    const l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = href;
+    l.onload = () => resolve();
+    l.onerror = () => resolve();
+    document.head.appendChild(l);
+  });
+}
+
+export default function EximApp({ user }: { user: EximUser }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [booting, setBooting] = useState(true);
+
+  useEffect(() => {
+    // Скрипты SPA объявляют глобальные const — повторная инициализация
+    // возможна только через полную перезагрузку страницы.
+    if (window.__EXIM_BOOTED) {
+      window.location.reload();
+      return;
+    }
+    window.__EXIM_BOOTED = true;
+
+    const supabase = createClient();
+    let cancelled = false;
+
+    // --- глобальный мост для SPA ---
+    window.__EXIM = { ...user };
+    window.__EXIM_LOGOUT = async () => {
+      try {
+        await supabase.auth.signOut();
+      } finally {
+        window.location.href = "/login";
+      }
+    };
+
+    // --- очередь синхронизации localStorage → Supabase ---
+    const timers: Record<string, ReturnType<typeof setTimeout>> = {};
+    function queueSync(key: string, raw: string) {
+      clearTimeout(timers[key]);
+      timers[key] = setTimeout(async () => {
+        try {
+          await supabase.from("user_state").upsert({
+            user_id: user.id,
+            key,
+            value: { v: raw },
+          });
+          if (key === SYNC_PREFIX + "profile") {
+            // зеркалим основные поля профиля в таблицу profiles
+            try {
+              const p = JSON.parse(raw);
+              await supabase
+                .from("profiles")
+                .update({
+                  full_name: p.name ?? undefined,
+                  company: p.company ?? undefined,
+                  phone: p.phone ?? undefined,
+                  bin: p.bin ?? undefined,
+                })
+                .eq("id", user.id);
+            } catch {}
+          }
+        } catch (e) {
+          console.warn("[exim-sync] upsert failed", key, e);
+        }
+      }, 700);
+    }
+
+    async function boot() {
+      try {
+        // 1) стили
+        await loadCss("/exim/app.css");
+
+        // 2) гидратация состояния из облака
+        const { data: rows, error: qErr } = await supabase
+          .from("user_state")
+          .select("key, value");
+        if (qErr) throw new Error("Не удалось загрузить данные: " + qErr.message);
+
+        // очищаем чужие/старые локальные данные
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(SYNC_PREFIX)) localStorage.removeItem(k);
+        }
+        for (const row of rows ?? []) {
+          const v = (row.value as { v?: string })?.v;
+          if (typeof v === "string") localStorage.setItem(row.key, v);
+        }
+
+        // 3) профиль: если в облаке ещё нет — заполняем из таблицы profiles
+        if (!localStorage.getItem(SYNC_PREFIX + "profile")) {
+          localStorage.setItem(
+            SYNC_PREFIX + "profile",
+            JSON.stringify({
+              name: user.fullName,
+              company: user.company,
+              phone: user.phone,
+              email: user.email,
+              bin: user.bin,
+              role:
+                user.role === "client"
+                  ? "Клиент"
+                  : user.role === "manager"
+                    ? "Менеджер"
+                    : user.role === "logist"
+                      ? "Логист"
+                      : "Администратор",
+            })
+          );
+        }
+
+        // 4) перехват записей: всё, что SPA пишет в localStorage, уходит в облако
+        const origSet = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key: string, value: string) {
+          origSet.call(this, key, value);
+          if (this === window.localStorage && key.startsWith(SYNC_PREFIX)) {
+            queueSync(key, value);
+          }
+        };
+
+        if (cancelled) return;
+
+        // 5) разметка приложения
+        const html = await (await fetch("/exim/body.html")).text();
+        if (hostRef.current) hostRef.current.innerHTML = html;
+
+        // 6) скрипты: Leaflet, затем логика приложения (сама вызовет initApp)
+        await loadScript("/exim/leaflet.js");
+        await loadScript("/exim/app.js");
+
+        if (!cancelled) setBooting(false);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Ошибка запуска приложения");
+      }
+    }
+
+    boot();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <>
+      {booting && !error && (
+        <div className="app-boot">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="EXIM" style={{ height: 44 }} />
+          <div className="spin" />
+          <div className="t">Загружаем ваши данные…</div>
+        </div>
+      )}
+      {error && (
+        <div className="app-boot">
+          <div className="auth-msg error" style={{ maxWidth: 420 }}>
+            {error}
+          </div>
+          <button
+            className="btn btn-primary"
+            style={{ padding: "10px 18px" }}
+            onClick={() => window.location.reload()}
+          >
+            Повторить
+          </button>
+        </div>
+      )}
+      <div ref={hostRef} />
+    </>
+  );
+}

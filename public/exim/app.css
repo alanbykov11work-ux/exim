@@ -3126,3 +3126,19 @@ body[data-role="client"] .app-nav a[data-nav="crm"] { display: none; }
 /* файлы в чате */
 .ch-file { cursor: pointer; }
 .ch-file:hover { filter: brightness(0.96); }
+
+/* кнопка-скрепка и галочки прочтения */
+.ch-attach-btn {
+  flex: none; width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: 9px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: color .12s, border-color .12s;
+}
+.ch-attach-btn:hover { color: var(--accent); border-color: var(--accent); }
+.ch-attach-btn svg { width: 19px; height: 19px; display: block; }
+.ch-input .form-input { height: 44px; }
+.ch-input .btn-primary { height: 44px; width: 52px; flex: none; padding: 0; }
+.ch-ticks { font-size: 11px; letter-spacing: -2px; color: var(--muted); }
+.ch-ticks.read { color: #2563EB; }
+body[data-theme="dark"] .ch-attach-btn { border-color: rgba(255,255,255,0.14); color: rgba(255,255,255,0.6); }

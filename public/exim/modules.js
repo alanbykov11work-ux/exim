@@ -216,8 +216,13 @@
     const s = S();
     const [{ data: msgs }, { data: members }] = await Promise.all([
       s.from('chat_messages').select('*').eq('chat_id', id).order('created_at').limit(200),
-      s.from('chat_members').select('user_id').eq('chat_id', id)
+      s.from('chat_members').select('user_id, last_read_at').eq('chat_id', id)
     ]);
+    // до какого момента ВСЕ остальные участники прочитали чат
+    const others = (members || []).filter(x => x.user_id !== U().id);
+    CHS.othersReadUpTo = others.length
+      ? Math.min(...others.map(x => new Date(x.last_read_at || 0).getTime()))
+      : 0;
     const allNames = (members || []).map(m => pname(m.user_id));
     const mShort = allNames.length > 3
       ? allNames.slice(0, 3).join(', ') + ' и ещё ' + (allNames.length - 3)
@@ -227,7 +232,7 @@
         <div class="ch-sub" title="${esc(allNames.join(', '))}">${esc(allNames.length ? allNames.length + ' участн.: ' + mShort : '')}</div></div></div>
       <div class="ch-log" id="ch-log">${(msgs || []).map(msgHtml).join('') || '<div class="ch-empty">Сообщений пока нет</div>'}</div>
       <div class="ch-input">
-        <button class="btn btn-quiet" style="border:1px solid var(--border);background:transparent;flex:none;width:44px;" title="Прикрепить файл" onclick="CH.attach()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+        <button class="ch-attach-btn" title="Прикрепить файл" onclick="CH.attach()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
         <input class="form-input" id="ch-text" placeholder="Сообщение…" onkeydown="if(event.key==='Enter')CH.send()">
         <button class="btn btn-primary" onclick="CH.send()">→</button>
       </div>`;
@@ -250,10 +255,20 @@
     } else {
       inner = `<div class="ch-bubble">${esc(m.text)}</div>`;
     }
-    return `<div class="ch-msg ${mine ? 'mine' : ''}">
+    const read = mine && m.created_at && CHS.othersReadUpTo >= new Date(m.created_at).getTime();
+    const ticks = mine ? `<span class="ch-ticks ${read ? 'read' : ''}" title="${read ? 'Прочитано' : 'Доставлено'}">${read ? '✓✓' : '✓'}</span>` : '';
+    return `<div class="ch-msg ${mine ? 'mine' : ''}" data-ts="${m.created_at || ''}">
       ${mine ? '' : `<div class="ch-msg-author">${esc(pname(m.sender_id))}</div>`}
       ${inner}
-      <div class="ch-time">${dt(m.created_at)}</div></div>`;
+      <div class="ch-time">${dt(m.created_at)} ${ticks}</div></div>`;
+  }
+  function updateTicks() {
+    document.querySelectorAll('#ch-log .ch-msg.mine').forEach(el => {
+      const ts = el.getAttribute('data-ts');
+      const t = el.querySelector('.ch-ticks');
+      if (!ts || !t) return;
+      if (CHS.othersReadUpTo >= new Date(ts).getTime()) { t.textContent = '✓✓'; t.classList.add('read'); t.title = 'Прочитано'; }
+    });
   }
   async function fillImg(elId, path) {
     try {
@@ -304,6 +319,15 @@
     try {
       if (CHS.sub) S().removeChannel(CHS.sub);
       CHS.sub = S().channel('chat-' + id)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_members', filter: 'chat_id=eq.' + id }, payload => {
+          if (payload.new.user_id === U().id) return;
+          const t = new Date(payload.new.last_read_at || 0).getTime();
+          if (t > (CHS.othersReadUpTo || 0)) {
+            // пересчёт: минимум по всем остальным неизвестен точно, но одиночный собеседник — именно это значение
+            CHS.othersReadUpTo = t;
+            updateTicks();
+          }
+        })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'chat_id=eq.' + id }, payload => {
           if (payload.new.sender_id === U().id) return; // своё уже показано мгновенно
           const log = document.getElementById('ch-log');
@@ -338,7 +362,7 @@
       showToast('danger', 'Не отправлено', error.message);
     } else if (el) {
       el.style.opacity = '1';
-      el.querySelector('.ch-time').textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      el.querySelector('.ch-time').innerHTML = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) + ' <span class="ch-ticks" title="Доставлено">✓</span>'; el.setAttribute('data-ts', new Date().toISOString());
     }
   }
   function newChatModal() {

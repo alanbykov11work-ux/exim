@@ -215,9 +215,13 @@
       s.from('chat_messages').select('*').eq('chat_id', id).order('created_at').limit(200),
       s.from('chat_members').select('user_id').eq('chat_id', id)
     ]);
-    const mNames = (members || []).map(m => pname(m.user_id)).join(', ');
+    const allNames = (members || []).map(m => pname(m.user_id));
+    const mShort = allNames.length > 3
+      ? allNames.slice(0, 3).join(', ') + ' и ещё ' + (allNames.length - 3)
+      : allNames.join(', ');
     main.innerHTML = `
-      <div class="ch-head"><div><b>${esc(chatTitle(c))}</b><div class="ch-sub">${esc(mNames)}</div></div></div>
+      <div class="ch-head"><div style="min-width:0;"><b>${esc(chatTitle(c))}</b>
+        <div class="ch-sub" title="${esc(allNames.join(', '))}">${esc(allNames.length ? allNames.length + ' участн.: ' + mShort : '')}</div></div></div>
       <div class="ch-log" id="ch-log">${(msgs || []).map(msgHtml).join('') || '<div class="ch-empty">Сообщений пока нет</div>'}</div>
       <div class="ch-input">
         <input class="form-input" id="ch-text" placeholder="Сообщение…" onkeydown="if(event.key==='Enter')CH.send()">

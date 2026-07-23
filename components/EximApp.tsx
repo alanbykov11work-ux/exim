@@ -168,14 +168,16 @@ export default function EximApp({ user }: { user: EximUser }) {
 
     async function boot() {
       try {
-        // 1) стили (версия-метка ломает старый кэш браузера)
-        const V = "?v=" + Date.now();
-        await loadCss("/exim/app.css" + V);
+        // версия сборки: кэш живёт между заходами, сбрасывается при деплое
+        const V = "?v=" + (process.env.NEXT_PUBLIC_BUILD_TS || "1");
 
-        // 2) гидратация состояния из облака
-        const { data: rows, error: qErr } = await supabase
-          .from("user_state")
-          .select("key, value");
+        // стили, состояние и разметка грузятся ПАРАЛЛЕЛЬНО
+        const [, stateRes, htmlText] = await Promise.all([
+          loadCss("/exim/app.css" + V),
+          supabase.from("user_state").select("key, value"),
+          fetch("/exim/body.html" + V).then((r) => r.text()),
+        ]);
+        const { data: rows, error: qErr } = stateRes;
         if (qErr) throw new Error("Не удалось загрузить данные: " + qErr.message);
 
         // очищаем чужие/старые локальные данные
@@ -221,17 +223,16 @@ export default function EximApp({ user }: { user: EximUser }) {
 
         if (cancelled) return;
 
-        // 5) разметка приложения
-        const html = await (
-          await fetch("/exim/body.html" + V, { cache: "no-store" })
-        ).text();
-        if (hostRef.current) hostRef.current.innerHTML = html;
+        // 5) разметка приложения (уже загружена параллельно)
+        if (hostRef.current) hostRef.current.innerHTML = htmlText;
 
-        // 6) скрипты: Leaflet, затем логика приложения (сама вызовет initApp)
+        // 6) скрипты: Leaflet → логика приложения, затем модули параллельно
         await loadScript("/exim/leaflet.js" + V);
         await loadScript("/exim/app.js" + V);
-        await loadScript("/exim/workflow.js" + V);
-        await loadScript("/exim/modules.js" + V);
+        await Promise.all([
+          loadScript("/exim/workflow.js" + V),
+          loadScript("/exim/modules.js" + V),
+        ]);
 
         if (!cancelled) setBooting(false);
       } catch (e) {

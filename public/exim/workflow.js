@@ -45,10 +45,16 @@
     delivered:  { l: 'Доставлено',   p: 100 }
   };
 
-  let CACHE = { orders: [], fin: {}, profiles: [], transports: [], tab: 'orders', openOrder: null, openTrans: null };
+  let CACHE = { orders: [], fin: {}, profiles: [], transports: [], tab: 'orders', openOrder: null, openTrans: null, loadedAt: 0, loading: null };
 
-  // ---------- загрузка данных ----------
-  async function loadAll() {
+  // ---------- загрузка данных (кэш 15 сек + защита от параллельных запросов) ----------
+  async function loadAll(force) {
+    if (!force && Date.now() - CACHE.loadedAt < 15000) return;      // свежие данные — не перезагружаем
+    if (CACHE.loading) return CACHE.loading;                        // уже грузится — ждём тот же запрос
+    CACHE.loading = _loadAll().finally(() => { CACHE.loading = null; CACHE.loadedAt = Date.now(); });
+    return CACHE.loading;
+  }
+  async function _loadAll() {
     const s = S(); if (!s) return;
     const [{ data: orders }, { data: transports }] = await Promise.all([
       s.from('orders').select('*').order('created_at', { ascending: false }),
@@ -87,7 +93,7 @@
   async function renderWF() {
     const box = document.getElementById('wf-content');
     if (!box) return;
-    box.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);">Загрузка…</div>';
+    if (!CACHE.loadedAt) box.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);">Загрузка…</div>';
     try { await loadAll(); } catch (e) { box.innerHTML = '<div style="padding:40px;color:var(--muted);">Не удалось загрузить данные: ' + esc(e.message) + '</div>'; return; }
     const isAdmin = dbRole() === 'admin';
     const tabs = `
@@ -311,6 +317,7 @@
     const { data, error } = await S().from('orders').insert(row).select().single();
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     hist(data.id, 'created', row);
+    CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Заявка создана', data.ref + ' — менеджер назначит логиста');
     renderWF();
   }
@@ -322,6 +329,7 @@
     const { error } = await S().from('orders').update(upd).eq('id', id);
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     hist(id, 'assigned', upd);
+    CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Логист назначен', 'Заявка отправлена на расчёт'); renderWF();
   }
   function gatherExpenses() {
@@ -356,6 +364,7 @@
     const e2 = (await S().from('order_finance').upsert({ order_id: id, cost, expenses })).error;
     if (e1 || e2) { showToast('danger', 'Ошибка', (e1 || e2).message); return; }
     hist(id, 'calculated', { ...updO, cost, expenses });
+    CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Расчёт отправлен', 'Менеджер получит уведомление'); renderWF();
   }
   async function sendOffer(id) {
@@ -367,12 +376,14 @@
     const e2 = (await S().from('order_finance').update({ margin }).eq('order_id', id)).error;
     if (e1 || e2) { showToast('danger', 'Ошибка', (e1 || e2).message); return; }
     hist(id, 'offer_sent', { margin, total, comment });
+    CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Предложение отправлено', 'Клиент увидит цену ' + fmtT(total)); renderWF();
   }
   async function decide(id, decision) {
     // решение клиента идёт через защищённую функцию БД — менять цену и статус напрямую нельзя
     const { error } = await S().rpc('decide_order', { p_order_id: id, p_decision: decision });
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
+    CACHE.loadedAt = 0;
     closeModal();
     showToast(decision === 'approved' ? 'success' : 'info', decision === 'approved' ? 'Предложение согласовано' : 'Предложение отклонено', decision === 'approved' ? 'Менеджер подготовит договор' : 'Менеджер свяжется с вами');
     renderWF();
@@ -381,6 +392,7 @@
     const { error } = await S().from('orders').update({ contract_signed_at: new Date().toISOString(), status: 'contract_signed' }).eq('id', id);
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     hist(id, 'contract_signed', {});
+    CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Договор отмечен подписанным', 'Теперь можно создать перевозку'); renderWF();
   }
   async function createTransport(id) {
@@ -390,6 +402,7 @@
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     await S().from('orders').update({ status: 'converted' }).eq('id', id);
     hist(id, 'converted', { transport: data.ref });
+    CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Перевозка создана', data.ref);
     CACHE.tab = 'trans'; renderWF();
   }
@@ -657,6 +670,7 @@
     if (typeof orig !== 'function') return;
     window[fn] = function () {
       const r = orig.apply(this, arguments);
+      CACHE.loadedAt = 0;
       setTimeout(function () {
         const pg = window.APP_STATE && APP_STATE.currentPage;
         if (pg === 'workflow') renderWF();

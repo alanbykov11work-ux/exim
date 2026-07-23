@@ -166,10 +166,12 @@
 
   async function loadChats() {
     const s = S();
-    const { data: chats } = await s.from('chats').select('*').order('created_at', { ascending: false });
-    CHS.list = chats || [];
-    const { data: profs } = await s.from('profiles').select('id, full_name, email, role, company');
-    CHS.profiles = profs || [];
+    const [chatsRes, profsRes] = await Promise.all([
+      s.from('chats').select('*').order('created_at', { ascending: false }),
+      CHS.profiles.length ? Promise.resolve({ data: CHS.profiles }) : s.from('profiles').select('id, full_name, email, role, company')
+    ]);
+    CHS.list = chatsRes.data || [];
+    CHS.profiles = profsRes.data || [];
   }
   const pname = id => { const p = CHS.profiles.find(x => x.id === id); return p ? (p.full_name || p.email) : '…'; };
 
@@ -239,8 +241,10 @@
       if (CHS.sub) S().removeChannel(CHS.sub);
       CHS.sub = S().channel('chat-' + id)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'chat_id=eq.' + id }, payload => {
+          if (payload.new.sender_id === U().id) return; // своё уже показано мгновенно
           const log = document.getElementById('ch-log');
           if (log && CHS.active === id) {
+            const empty = log.querySelector('.ch-empty'); if (empty) empty.remove();
             log.insertAdjacentHTML('beforeend', msgHtml(payload.new));
             log.scrollTop = log.scrollHeight;
           }
@@ -252,8 +256,26 @@
     const text = (inp && inp.value || '').trim();
     if (!text || !CHS.active) return;
     inp.value = '';
+    // оптимистичная отправка: пузырь появляется мгновенно
+    const log = document.getElementById('ch-log');
+    const tmpId = 'tmp-' + Date.now();
+    if (log) {
+      const empty = log.querySelector('.ch-empty'); if (empty) empty.remove();
+      log.insertAdjacentHTML('beforeend',
+        '<div class="ch-msg mine" id="' + tmpId + '" style="opacity:.65;">' +
+        '<div class="ch-bubble">' + esc(text) + '</div>' +
+        '<div class="ch-time">отправка…</div></div>');
+      log.scrollTop = log.scrollHeight;
+    }
     const { error } = await S().from('chat_messages').insert({ chat_id: CHS.active, sender_id: U().id, text });
-    if (error) showToast('danger', 'Не отправлено', error.message);
+    const el = document.getElementById(tmpId);
+    if (error) {
+      if (el) { el.style.opacity = '1'; el.querySelector('.ch-time').textContent = 'не отправлено'; el.querySelector('.ch-bubble').style.background = 'rgba(225,29,72,.25)'; }
+      showToast('danger', 'Не отправлено', error.message);
+    } else if (el) {
+      el.style.opacity = '1';
+      el.querySelector('.ch-time').textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    }
   }
   function newChatModal() {
     // клиент видит только сотрудников; персонал — всех
@@ -435,9 +457,15 @@
     const inp = document.getElementById('ts-comment');
     const text = (inp && inp.value || '').trim();
     if (!text) return;
+    inp.value = '';
+    const box = document.getElementById('ts-comments');
+    if (box) {
+      box.insertAdjacentHTML('beforeend', '<div style="padding:8px 10px;background:var(--bg);border-radius:9px;margin-bottom:6px;opacity:.7;">' +
+        '<div style="font-size:12px;color:var(--muted);">вы · сейчас</div><div style="font-size:13.5px;">' + esc(text) + '</div></div>');
+      box.scrollTop = box.scrollHeight;
+    }
     const { error } = await S().from('task_comments').insert({ task_id: id, author_id: U().id, text });
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
-    openTask(id);
   }
 
   /* ============================================================

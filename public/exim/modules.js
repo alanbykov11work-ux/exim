@@ -224,6 +224,8 @@
     const log = document.getElementById('ch-log');
     if (log) log.scrollTop = log.scrollHeight;
     subscribeChat(id);
+    try { await s.from('chat_members').update({ last_read_at: new Date().toISOString() }).eq('chat_id', id).eq('user_id', U().id); } catch (e) {}
+    refreshBadges();
   }
   function msgHtml(m) {
     const mine = m.sender_id === U().id;
@@ -454,6 +456,41 @@
     const inner = box.querySelector('.card .card');
     if (inner) { inner.style.boxShadow = 'none'; inner.style.border = 'none'; inner.style.padding = '0'; }
   }
+
+
+  /* ============================================================
+     ПЛАШКИ НЕПРОЧИТАННОГО В МЕНЮ
+     ============================================================ */
+  function setNavBadge(nav, count) {
+    const link = document.querySelector('.app-nav a[data-nav="' + nav + '"]');
+    if (!link) return;
+    let b = link.querySelector('.nav-badge');
+    if (!count) { if (b) b.remove(); return; }
+    if (!b) { b = document.createElement('span'); b.className = 'nav-badge'; link.appendChild(b); }
+    b.textContent = count > 99 ? '99+' : count;
+  }
+  async function refreshBadges() {
+    const s = S(); if (!s) return;
+    try {
+      const { data: unread } = await s.rpc('unread_messages');
+      setNavBadge('chats', Number(unread || 0));
+    } catch (e) {}
+    try {
+      const { data: nt } = await s.from('tasks').select('id').eq('assignee_id', U().id).eq('status', 'new');
+      setNavBadge('tasks', (nt || []).length);
+    } catch (e) {}
+  }
+  function subscribeBadges() {
+    try {
+      S().channel('badges-global')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
+          if (payload.new.sender_id !== U().id) refreshBadges();
+        }).subscribe();
+    } catch (e) {}
+    setInterval(refreshBadges, 45000);
+    setTimeout(refreshBadges, 1500);
+  }
+  subscribeBadges();
 
   /* ============================================================
      ИНТЕГРАЦИЯ

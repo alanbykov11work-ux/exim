@@ -200,17 +200,25 @@
         body += `<div style="font-weight:600;margin:6px 0 10px;">Расчёт ${o.calc_deadline ? '· дедлайн ' + dt(o.calc_deadline) : ''}</div>
           <div class="form-group"><label class="form-label">Маршрут следования</label>
             <input class="form-input" id="wf-route" value="${esc(o.calc_route)}" placeholder="Урумчи — Хоргос — Алматы"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div class="form-group"><label class="form-label">Срок</label>
-              <input class="form-input" id="wf-days" value="${esc(o.calc_days)}" placeholder="7–9 дней"></div>
-            <div class="form-group"><label class="form-label">Себестоимость, ₸</label>
-              <input class="form-input" id="wf-cost" type="number" value="${f.cost || ''}" placeholder="1500000"></div>
+          <div class="form-group"><label class="form-label">Срок</label>
+            <input class="form-input" id="wf-days" value="${esc(o.calc_days)}" placeholder="7–9 дней"></div>
+          <div class="form-group"><label class="form-label">Расчёт по статьям</label>
+            <div id="wf-exp-rows">${(exp.length ? exp : [{ name: 'Фрахт', amount: '' }, { name: 'СВХ / терминал', amount: '' }, { name: 'Оформление', amount: '' }]).map(e => `
+              <div class="wf-exp-row" style="display:flex;gap:8px;margin-bottom:8px;">
+                <input class="form-input wf-exp-name" placeholder="Статья расхода" value="${esc(e.name)}" style="flex:2;">
+                <input class="form-input wf-exp-sum" type="number" placeholder="Сумма, ₸" value="${e.amount || ''}" style="flex:1;" oninput="WF.calcSum()">
+                <button type="button" class="btn btn-ghost btn-sm" style="color:var(--accent);flex:none;" onclick="this.parentElement.remove();WF.calcSum();">✕</button>
+              </div>`).join('')}</div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="WF.addExpRow()">+ добавить статью</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:12px 14px;background:var(--bg);border-radius:10px;">
+              <span style="font-weight:600;">Себестоимость (итого)</span>
+              <span class="mono" id="wf-cost-total" style="font-size:18px;font-weight:700;">₸ 0</span>
+            </div>
           </div>
-          <div class="form-group"><label class="form-label">Расходы (по строке: название = сумма)</label>
-            <textarea class="form-input" id="wf-exp" rows="3" placeholder="Фрахт = 1200000&#10;СВХ = 150000&#10;Оформление = 150000">${esc(exp.map(e => e.name + ' = ' + e.amount).join('\n'))}</textarea></div>
           <div class="form-group"><label class="form-label">Комментарий менеджеру</label>
             <textarea class="form-input" id="wf-comment" rows="2">${esc(o.calc_comment)}</textarea></div>
           <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.submitCalc('${o.id}')">Отправить расчёт менеджеру</button>`;
+        setTimeout(calcSum, 50);
       } else {
         body += calcBlock(o, f) + `<div style="color:var(--muted);font-size:13.5px;margin-top:10px;">Расчёт отправлен ${dt(o.calc_submitted_at)}.</div>`;
       }
@@ -316,11 +324,33 @@
     hist(id, 'assigned', upd);
     closeModal(); showToast('success', 'Логист назначен', 'Заявка отправлена на расчёт'); renderWF();
   }
+  function gatherExpenses() {
+    return [...document.querySelectorAll('#wf-exp-rows .wf-exp-row')].map(r => ({
+      name: (r.querySelector('.wf-exp-name') || {}).value || '',
+      amount: Number((r.querySelector('.wf-exp-sum') || {}).value || 0)
+    })).filter(e => e.name.trim() && e.amount > 0);
+  }
+  function calcSum() {
+    const total = gatherExpenses().reduce((s, e) => s + e.amount, 0);
+    const el = document.getElementById('wf-cost-total');
+    if (el) el.textContent = fmtT(total);
+    return total;
+  }
+  function addExpRow() {
+    const box = document.getElementById('wf-exp-rows');
+    if (!box) return;
+    box.insertAdjacentHTML('beforeend', `
+      <div class="wf-exp-row" style="display:flex;gap:8px;margin-bottom:8px;">
+        <input class="form-input wf-exp-name" placeholder="Статья расхода" style="flex:2;">
+        <input class="form-input wf-exp-sum" type="number" placeholder="Сумма, ₸" style="flex:1;" oninput="WF.calcSum()">
+        <button type="button" class="btn btn-ghost btn-sm" style="color:var(--accent);flex:none;" onclick="this.parentElement.remove();WF.calcSum();">✕</button>
+      </div>`);
+  }
   async function submitCalc(id) {
     const v = x => (document.getElementById(x) || {}).value || '';
-    const cost = Number(v('wf-cost') || 0);
-    if (!cost) { showToast('warning', 'Укажите себестоимость', 'Поле «Себестоимость» обязательно'); return; }
-    const expenses = v('wf-exp').split('\n').map(l => { const m = l.split('='); return m.length === 2 ? { name: m[0].trim(), amount: Number(String(m[1]).replace(/[^\d.]/g, '')) || 0 } : null; }).filter(Boolean);
+    const expenses = gatherExpenses();
+    const cost = expenses.reduce((s, e) => s + e.amount, 0);
+    if (!cost) { showToast('warning', 'Заполните статьи расчёта', 'Добавьте хотя бы одну статью с суммой'); return; }
     const updO = { calc_route: v('wf-route'), calc_days: v('wf-days'), calc_comment: v('wf-comment'), calc_submitted_at: new Date().toISOString(), status: 'calculated' };
     const e1 = (await S().from('orders').update(updO).eq('id', id)).error;
     const e2 = (await S().from('order_finance').upsert({ order_id: id, cost, expenses })).error;
@@ -612,6 +642,7 @@
   window.WF = {
     tab: t => { CACHE.tab = t; renderWF(); },
     view: v => { CACHE.view = v; renderWF(); },
+    calcSum, addExpRow,
     setRole, dash: renderWFDash,
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),

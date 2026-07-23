@@ -70,12 +70,14 @@
     if (!box) return;
     box.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);">Загрузка…</div>';
     try { await loadAll(); } catch (e) { box.innerHTML = '<div style="padding:40px;color:var(--muted);">Не удалось загрузить данные: ' + esc(e.message) + '</div>'; return; }
+    const isAdmin = U().role === 'admin';
     const tabs = `
       <div class="rd-tabs" style="margin-bottom:20px;">
         <button class="rd-tab ${CACHE.tab==='orders'?'active':''}" onclick="WF.tab('orders')">Заявки и расчёты</button>
         <button class="rd-tab ${CACHE.tab==='trans'?'active':''}" onclick="WF.tab('trans')">Перевозки</button>
+        ${isAdmin ? `<button class="rd-tab ${CACHE.tab==='team'?'active':''}" onclick="WF.tab('team')">Команда</button>` : ''}
       </div>`;
-    box.innerHTML = tabs + (CACHE.tab === 'orders' ? viewOrders() : viewTrans());
+    box.innerHTML = tabs + (CACHE.tab === 'orders' ? viewOrders() : CACHE.tab === 'team' ? viewTeam() : viewTrans());
   }
 
   // ============================================================
@@ -477,9 +479,97 @@
     picker.click();
   }
 
+
+  // ============================================================
+  // КОМАНДА (только админ): роли пользователей
+  // ============================================================
+  const ROLE_L = { client: 'Клиент', manager: 'Менеджер', logist: 'Логист', admin: 'Администратор' };
+  function viewTeam() {
+    const rows = CACHE.profiles.map(p => `
+      <tr>
+        <td>${esc(p.full_name || '—')}${p.id === U().id ? ' <span class="pill pill-info">вы</span>' : ''}</td>
+        <td style="color:var(--muted);">${esc(p.email)}</td>
+        <td>${esc(p.company || '—')}</td>
+        <td>
+          <select class="form-input" style="height:36px;padding:0 10px;font-size:13.5px;width:auto;"
+            onchange="WF.setRole('${p.id}', this.value, ${p.id === U().id})">
+            ${Object.keys(ROLE_L).map(r => `<option value="${r}" ${p.role===r?'selected':''}>${ROLE_L[r]}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('');
+    return `<div class="card">
+      <div style="font-weight:600;margin-bottom:4px;">Пользователи и роли</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Смена роли применяется сразу. Свою роль тоже можно менять — интерфейс перезагрузится. Нельзя снять последнего администратора.</div>
+      <table class="table"><thead><tr><th>Имя</th><th>Email</th><th>Компания</th><th>Роль</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  }
+  async function setRole(uid, role, isSelf) {
+    const { error } = await S().rpc('admin_set_role', { p_user: uid, p_role: role });
+    if (error) { showToast('danger', 'Ошибка', error.message); renderWF(); return; }
+    showToast('success', 'Роль изменена', ROLE_L[role]);
+    if (isSelf) setTimeout(() => window.location.reload(), 800);
+    else renderWF();
+  }
+
+  // ============================================================
+  // ДАШБОРДЫ ПО РОЛЯМ (на главной)
+  // ============================================================
+  function dashCard(n, label, accent, onclick) {
+    return `<div class="svc-kpi" style="cursor:pointer;" onclick="${onclick || "navigate('workflow')"}">
+      <div class="mono svc-kpi-n" ${accent ? 'style="color:var(--accent);"' : ''}>${n}</div>
+      <div class="svc-kpi-l">${label}</div></div>`;
+  }
+  async function renderWFDash() {
+    const box = document.getElementById('wf-dash');
+    if (!box || !S()) return;
+    try { await loadAll(); } catch (e) { return; }
+    const os = CACHE.orders, ts = CACHE.transports;
+    const inTransit = ts.filter(t => !['delivered', 'archived'].includes(t.status)).length;
+    let cards = '';
+    let title = '';
+    if (isMgr()) {
+      const nnew = os.filter(o => o.status === 'new').length;
+      const calc = os.filter(o => o.status === 'assigned');
+      const late = calc.filter(overdue).length;
+      const ready = os.filter(o => o.status === 'calculated').length;
+      const waiting = os.filter(o => o.status === 'offer_sent').length;
+      const toShip = os.filter(o => ['approved', 'contract_signed'].includes(o.status)).length;
+      const marginSum = os.filter(o => o.offer_sent_at).reduce((s, o) => s + Number((CACHE.fin[o.id] || {}).margin || 0), 0);
+      title = 'Рабочий стол менеджера';
+      cards = dashCard(nnew, 'новых заявок', nnew > 0) +
+        dashCard(calc.length + (late ? ' <span style="font-size:14px;color:var(--accent);">(' + late + ' проср.)</span>' : ''), 'на расчёте', late > 0) +
+        dashCard(ready, 'расчёт готов — нужна маржа', ready > 0) +
+        dashCard(waiting, 'ждут решения клиента', false) +
+        dashCard(toShip, 'к оформлению перевозки', toShip > 0) +
+        dashCard(inTransit, 'перевозок в работе', false) +
+        dashCard(fmtT(marginSum), 'маржа по отправленным', false);
+    } else if (isLog()) {
+      const my = os.filter(o => o.status === 'assigned');
+      const late = my.filter(overdue).length;
+      title = 'Рабочий стол логиста';
+      cards = dashCard(my.length, 'заявок на расчёте у вас', my.length > 0) +
+        dashCard(late, 'просрочено', late > 0) +
+        dashCard(inTransit, 'перевозок в работе', false);
+    } else {
+      const active = os.filter(o => !['rejected', 'archived', 'converted'].includes(o.status)).length;
+      const decide = os.filter(o => o.status === 'offer_sent').length;
+      const done = ts.filter(t => t.status === 'delivered').length;
+      title = 'Ваши перевозки с EXIM';
+      cards = dashCard(active, 'заявок в работе', false) +
+        dashCard(decide, 'ждут вашего решения', decide > 0) +
+        dashCard(inTransit, 'грузов в пути', false) +
+        dashCard(done, 'доставлено', false);
+    }
+    box.innerHTML = `<div style="margin: 4px 0 20px;">
+      <span class="eyebrow">${title}</span>
+      <div class="svc-kpis" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">${cards}</div>
+    </div>`;
+  }
+
   // ---------- интеграция с приложением ----------
   window.WF = {
     tab: t => { CACHE.tab = t; renderWF(); },
+    setRole, dash: renderWFDash,
     open: openOrder, newOrder, createOrder, assign, submitCalc, sendOffer, decide,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
@@ -488,5 +578,8 @@
   window.navigate = function (page, event, id) {
     _nav(page, event, id);
     if (page === 'workflow') renderWF();
+    if (page === 'dashboard') renderWFDash();
   };
+  // при первом входе тоже отрисовать дашборд
+  setTimeout(renderWFDash, 600);
 })();

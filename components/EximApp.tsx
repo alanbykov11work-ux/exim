@@ -251,11 +251,13 @@ export default function EximApp({ user }: { user: EximUser }) {
   return (
     <>
       {booting && !error && (
-        <div className="app-boot">
+        <div className="app-boot app-boot-dark">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="EXIM" style={{ height: 44 }} />
-          <div className="spin" />
-          <div className="t">Загружаем ваши данные…</div>
+          <img src="/logo-white.png" alt="EXIM" style={{ height: 40 }} />
+          <div className="boot-bar">
+            <div className="boot-bar-fill" />
+          </div>
+          <div className="t">Загружаем рабочее пространство</div>
         </div>
       )}
       {error && (

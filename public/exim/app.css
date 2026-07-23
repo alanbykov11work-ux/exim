@@ -3074,3 +3074,7 @@ body[data-theme="dark"] .kb-card, body[data-theme="dark"] .kb-n { background: #1
 .table th, .table td { padding: 11px 12px; vertical-align: middle; }
 .rd-tabs { gap: 6px; }
 .dash-link { min-height: 58px; }
+
+/* логотип в сайдбаре: без плашки, выровнен с пунктами меню */
+.sb-brand { padding: 10px 14px 22px; }
+.sb-brand img { opacity: 0.98; }

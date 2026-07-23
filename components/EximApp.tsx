@@ -231,6 +231,7 @@ export default function EximApp({ user }: { user: EximUser }) {
         await loadScript("/exim/leaflet.js" + V);
         await loadScript("/exim/app.js" + V);
         await loadScript("/exim/workflow.js" + V);
+        await loadScript("/exim/modules.js" + V);
 
         if (!cancelled) setBooting(false);
       } catch (e) {

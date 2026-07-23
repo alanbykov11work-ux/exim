@@ -7,8 +7,19 @@
 (function () {
   const S = () => window.__SUPA;
   const U = () => window.__EXIM || {};
-  const isMgr = () => ['manager', 'admin'].includes(U().role);
-  const isLog = () => U().role === 'logist';
+  // Реальная роль (права в БД) и роль просмотра (переключатель в шапке)
+  const dbRole = () => U().role || 'client';
+  const effRole = () => {
+    const dbr = dbRole();
+    if (!['admin', 'manager', 'logist'].includes(dbr)) return 'client';
+    const vr = (window.APP_STATE && window.APP_STATE.currentRole) || null;
+    if (vr === 'client') return 'client';
+    if (vr === 'logist') return 'logist';
+    if (vr === 'manager') return 'manager';
+    return dbr === 'admin' ? 'manager' : dbr;
+  };
+  const isMgr = () => effRole() === 'manager';
+  const isLog = () => effRole() === 'logist';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmtT = n => n == null || n === '' ? '—' : '₸ ' + Math.round(Number(n)).toLocaleString('ru-RU');
   const dt = s => s ? new Date(s).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -43,17 +54,25 @@
       s.from('orders').select('*').order('created_at', { ascending: false }),
       s.from('transports').select('*').order('created_at', { ascending: false })
     ]);
-    CACHE.orders = orders || [];
-    CACHE.transports = transports || [];
+    let allOrders = orders || [], allTrans = transports || [];
+    // режим просмотра «как клиент/логист» у персонала: показываем соответствующий срез
+    if (['admin', 'manager', 'logist'].includes(dbRole())) {
+      if (effRole() === 'client') {
+        allOrders = allOrders.filter(o => o.client_id === U().id || o.created_by === U().id);
+        allTrans = allTrans.filter(t => t.client_id === U().id);
+      } else if (effRole() === 'logist') {
+        allOrders = allOrders.filter(o => o.logist_id === U().id);
+        allTrans = allTrans.filter(t => t.logist_id === U().id);
+      }
+    }
+    CACHE.orders = allOrders;
+    CACHE.transports = allTrans;
     if (isMgr() || isLog()) {
       const ids = CACHE.orders.map(o => o.id);
       const { data: fin } = ids.length ? await s.from('order_finance').select('*').in('order_id', ids) : { data: [] };
       CACHE.fin = {}; (fin || []).forEach(f => CACHE.fin[f.order_id] = f);
-      if (isMgr()) {
-        const { data: profs } = await s.from('profiles').select('id, full_name, email, role, company');
-        CACHE.profiles = profs || [];
-      }
     }
+    { const { data: profs } = await s.from('profiles').select('id, full_name, email, role, company'); CACHE.profiles = profs || []; }
   }
   const logists = () => CACHE.profiles.filter(p => ['logist','manager','admin'].includes(p.role));
   const profName = id => { const p = CACHE.profiles.find(x => x.id === id); return p ? (p.full_name || p.email) : '—'; };
@@ -70,7 +89,7 @@
     if (!box) return;
     box.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);">Загрузка…</div>';
     try { await loadAll(); } catch (e) { box.innerHTML = '<div style="padding:40px;color:var(--muted);">Не удалось загрузить данные: ' + esc(e.message) + '</div>'; return; }
-    const isAdmin = U().role === 'admin';
+    const isAdmin = dbRole() === 'admin';
     const tabs = `
       <div class="rd-tabs" style="margin-bottom:20px;">
         <button class="rd-tab ${CACHE.tab==='orders'?'active':''}" onclick="WF.tab('orders')">Заявки и расчёты</button>
@@ -85,7 +104,28 @@
   // ============================================================
   function viewOrders() {
     const os = CACHE.orders;
+    const viewBtns = `<div class="rd-tabs" style="margin:0;display:inline-flex;">
+      <button class="rd-tab ${CACHE.view !== 'kanban' ? 'active' : ''}" onclick="WF.view('list')">Список</button>
+      <button class="rd-tab ${CACHE.view === 'kanban' ? 'active' : ''}" onclick="WF.view('kanban')">Канбан</button></div>`;
     const newBtn = `<button class="btn btn-primary" onclick="WF.newOrder()">+ Новая заявка на расчёт</button>`;
+    if (CACHE.view === 'kanban' && os.length) {
+      const COLS = [
+        ['new', 'Новые'], ['assigned', 'На расчёте'], ['calculated', 'Расчёт готов'],
+        ['offer_sent', 'У клиента'], ['approved,contract_signed', 'Согласованы'], ['converted,rejected,archived', 'Завершены']
+      ];
+      const cols = COLS.map(c => {
+        const keys = c[0].split(',');
+        const list = os.filter(o => keys.includes(o.status));
+        const cards = list.map(o => `<div class="kb-card" onclick="WF.open('${o.id}')">
+            <div class="mono" style="font-size:11.5px;color:var(--muted);">${esc(o.ref)}${overdue(o) ? ' · <span style="color:var(--accent);font-weight:600;">просрочка</span>' : ''}</div>
+            <div style="font-weight:600;font-size:13.5px;margin:3px 0;">${esc(o.origin)} → ${esc(o.destination)}</div>
+            <div style="font-size:12px;color:var(--muted);">${esc(o.cargo || '')}${o.total_price && (isMgr() || o.offer_sent_at) ? ' · ' + fmtT(o.total_price) : ''}</div>
+          </div>`).join('');
+        return `<div class="kb-col"><div class="kb-head">${c[1]} <span class="kb-n">${list.length}</span></div>${cards || '<div class="kb-empty">—</div>'}</div>`;
+      }).join('');
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">${viewBtns}${isLog() ? '' : newBtn}</div>
+        <div class="kb-board">${cols}</div>`;
+    }
     if (!os.length) {
       return `<div class="card" style="text-align:center;padding:48px;">
         <div style="font-weight:600;font-size:17px;margin-bottom:6px;">Заявок пока нет</div>
@@ -104,7 +144,7 @@
         <td style="color:var(--muted);font-size:13px;">${dt(o.created_at)}</td>
       </tr>`;
     }).join('');
-    return `${isLog() ? '' : `<div style="margin-bottom:16px;">${newBtn}</div>`}
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">${viewBtns}${isLog() ? '' : newBtn}</div>
       <div class="card"><table class="table">
       <thead><tr><th>№</th><th>Маршрут</th><th>Груз</th><th>Статус</th><th>Цена</th><th>Создана</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
@@ -569,11 +609,31 @@
   // ---------- интеграция с приложением ----------
   window.WF = {
     tab: t => { CACHE.tab = t; renderWF(); },
+    view: v => { CACHE.view = v; renderWF(); },
     setRole, dash: renderWFDash,
+    getData: async () => { await loadAll(); return CACHE; },
+    teamHtml: () => viewTeam(),
+    effRole, dbRole,
     open: openOrder, newOrder, createOrder, assign, submitCalc, sendOffer, decide,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };
+  // при смене роли просмотра — обновить данные на текущей странице
+  ['switchRole', 'switchRoleTo'].forEach(function (fn) {
+    const orig = window[fn];
+    if (typeof orig !== 'function') return;
+    window[fn] = function () {
+      const r = orig.apply(this, arguments);
+      setTimeout(function () {
+        const pg = window.APP_STATE && APP_STATE.currentPage;
+        if (pg === 'workflow') renderWF();
+        if (pg === 'dashboard') renderWFDash();
+        if (pg === 'analytics' && window.AN) AN.render();
+      }, 50);
+      return r;
+    };
+  });
+
   const _nav = window.navigate;
   window.navigate = function (page, event, id) {
     _nav(page, event, id);

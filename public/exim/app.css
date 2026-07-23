@@ -3119,3 +3119,6 @@ body[data-theme="dark"] .kb-card, body[data-theme="dark"] .kb-n { background: #1
 .ch-head { overflow: hidden; }
 .ch-head .ch-sub { max-width: 100%; }
 .ch-wrap { grid-template-columns: 280px minmax(0, 1fr); }
+
+/* CRM скрыта у клиентов */
+body[data-role="client"] .app-nav a[data-nav="crm"] { display: none; }

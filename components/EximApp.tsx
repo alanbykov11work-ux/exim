@@ -232,6 +232,7 @@ export default function EximApp({ user }: { user: EximUser }) {
         await Promise.all([
           loadScript("/exim/workflow.js" + V),
           loadScript("/exim/modules.js" + V),
+          loadScript("/exim/crm.js" + V),
         ]);
 
         if (!cancelled) setBooting(false);

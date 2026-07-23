@@ -168,8 +168,9 @@ export default function EximApp({ user }: { user: EximUser }) {
 
     async function boot() {
       try {
-        // 1) стили
-        await loadCss("/exim/app.css");
+        // 1) стили (версия-метка ломает старый кэш браузера)
+        const V = "?v=" + Date.now();
+        await loadCss("/exim/app.css" + V);
 
         // 2) гидратация состояния из облака
         const { data: rows, error: qErr } = await supabase
@@ -221,13 +222,15 @@ export default function EximApp({ user }: { user: EximUser }) {
         if (cancelled) return;
 
         // 5) разметка приложения
-        const html = await (await fetch("/exim/body.html")).text();
+        const html = await (
+          await fetch("/exim/body.html" + V, { cache: "no-store" })
+        ).text();
         if (hostRef.current) hostRef.current.innerHTML = html;
 
         // 6) скрипты: Leaflet, затем логика приложения (сама вызовет initApp)
-        await loadScript("/exim/leaflet.js");
-        await loadScript("/exim/app.js");
-        await loadScript("/exim/workflow.js");
+        await loadScript("/exim/leaflet.js" + V);
+        await loadScript("/exim/app.js" + V);
+        await loadScript("/exim/workflow.js" + V);
 
         if (!cancelled) setBooting(false);
       } catch (e) {

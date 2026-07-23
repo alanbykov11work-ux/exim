@@ -3,12 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import AuthHero from "@/components/AuthHero";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [form, setForm] = useState({
     name: "",
     company: "",
@@ -38,27 +36,30 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: form.email.trim(),
-      password: form.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
+    // регистрация через серверный обработчик: рейт-лимит по IP
+    let res: Response;
+    try {
+      res = await fetch("/auth/password-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email.trim(),
+          password: form.password,
           full_name: form.name.trim(),
           company: form.company.trim(),
           phone: form.phone.trim(),
-          role: "client",
-        },
-      },
-    });
+        }),
+      });
+    } catch {
+      setLoading(false);
+      setError("Нет соединения. Попробуйте ещё раз.");
+      return;
+    }
+    const j = await res.json().catch(() => ({}));
     setLoading(false);
 
-    if (error) {
-      if (error.message.toLowerCase().includes("already registered")) {
-        setError("Этот email уже зарегистрирован. Попробуйте войти.");
-      } else {
-        setError(error.message);
-      }
+    if (!res.ok) {
+      setError(j.error || "Не удалось зарегистрироваться.");
       return;
     }
 

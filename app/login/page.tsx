@@ -52,27 +52,30 @@ function LoginInner() {
     setError(null);
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    if (error) {
+    // вход через серверный обработчик: защита от перебора (5 попыток / 30 мин)
+    let res: Response;
+    try {
+      res = await fetch("/auth/password-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+    } catch {
       setLoading(false);
-      if (error.message.toLowerCase().includes("email not confirmed")) {
-        setError(
-          "Почта ещё не подтверждена. Проверьте входящие — мы отправили письмо со ссылкой подтверждения."
-        );
-      } else if (error.message.toLowerCase().includes("invalid login")) {
-        setError("Неверный email или пароль.");
-      } else {
-        setError(error.message);
-      }
+      setError("Нет соединения. Попробуйте ещё раз.");
+      return;
+    }
+    const j = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      setLoading(false);
+      setError(j.error || "Не удалось войти.");
+      if (j.unconfirmed) router.push("/verify?email=" + encodeURIComponent(email.trim()));
       return;
     }
 
-    if (data.user && !data.user.email_confirmed_at) {
-      router.push("/verify");
+    if (!j.confirmed) {
+      router.push("/verify?email=" + encodeURIComponent(email.trim()));
       return;
     }
     router.push("/app");

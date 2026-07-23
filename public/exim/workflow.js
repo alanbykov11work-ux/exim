@@ -298,9 +298,9 @@
     closeModal(); showToast('success', 'Предложение отправлено', 'Клиент увидит цену ' + fmtT(total)); renderWF();
   }
   async function decide(id, decision) {
-    const { error } = await S().from('orders').update({ client_decision: decision, client_decision_at: new Date().toISOString(), status: decision }).eq('id', id);
+    // решение клиента идёт через защищённую функцию БД — менять цену и статус напрямую нельзя
+    const { error } = await S().rpc('decide_order', { p_order_id: id, p_decision: decision });
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
-    hist(id, 'client_' + decision, {});
     closeModal();
     showToast(decision === 'approved' ? 'success' : 'info', decision === 'approved' ? 'Предложение согласовано' : 'Предложение отклонено', decision === 'approved' ? 'Менеджер подготовит договор' : 'Менеджер свяжется с вами');
     renderWF();

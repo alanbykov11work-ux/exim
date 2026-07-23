@@ -78,13 +78,25 @@
       const { data: fin } = ids.length ? await s.from('order_finance').select('*').in('order_id', ids) : { data: [] };
       CACHE.fin = {}; (fin || []).forEach(f => CACHE.fin[f.order_id] = f);
     }
-    { const { data: profs } = await s.from('profiles').select('id, full_name, email, role, company'); CACHE.profiles = profs || []; }
+    { const { data: profs } = await s.from('profiles').select('id, full_name, email, role, company, staff_code'); CACHE.profiles = profs || []; }
   }
   const logists = () => CACHE.profiles.filter(p => ['logist','manager','admin'].includes(p.role));
   const profName = id => { const p = CACHE.profiles.find(x => x.id === id); return p ? (p.full_name || p.email) : '—'; };
 
   async function hist(orderId, action, snapshot) {
     try { await S().from('order_history').insert({ order_id: orderId, actor_id: U().id, action, snapshot: snapshot || {} }); } catch (e) {}
+  }
+  // Код направления для умного номера: 10 Китай, 20 РФ/СНГ, 30 внутри КЗ, 40 Европа, 50 Турция/Кавказ, 90 прочее
+  function directionCode(origin, destination) {
+    const s = ((origin || '') + ' ' + (destination || '')).toLowerCase();
+    if (/гуанчжоу|шэньчжэнь|пекин|шанхай|иу|урумчи|сиань|китай|хоргос|достык/.test(s)) return '10';
+    if (/москва|казань|омск|новосибирск|екатеринбург|россия|минск|ташкент|бишкек|душанбе/.test(s)) return '20';
+    if (/стамбул|турция|тбилиси|баку|ереван/.test(s)) return '50';
+    if (/берлин|варшава|прага|европ|гамбург|роттердам/.test(s)) return '40';
+    const kz = /алматы|астана|шымкент|караганда|актобе|атырау|актау|уральск|тараз|павлодар|казахстан/;
+    const parts = s.split(' ');
+    if (kz.test(origin || '') && kz.test(destination || '')) return '30';
+    return '90';
   }
   function refOrd() { return 'ZK-' + Math.floor(1000 + Math.random() * 9000); }
   function refTr() { return 'TR-' + Math.floor(1000 + Math.random() * 9000); }
@@ -397,7 +409,14 @@
   }
   async function createTransport(id) {
     const o = CACHE.orders.find(x => x.id === id); if (!o) return;
-    const row = { ref: refTr(), order_id: o.id, client_id: o.client_id, manager_id: U().id, logist_id: o.logist_id, origin: o.origin, destination: o.destination };
+    let ref = null;
+    try {
+      const { data } = await S().rpc('gen_transport_ref', {
+        p_manager: U().id, p_logist: o.logist_id, p_direction: directionCode(o.origin, o.destination)
+      });
+      ref = data;
+    } catch (e) {}
+    const row = { ref: ref || refTr(), order_id: o.id, client_id: o.client_id, manager_id: U().id, logist_id: o.logist_id, origin: o.origin, destination: o.destination };
     const { data, error } = await S().from('transports').insert(row).select().single();
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     await S().from('orders').update({ status: 'converted' }).eq('id', id);
@@ -450,9 +469,12 @@
     const st = TST[t.status] || TST.preparing;
     const staff = isMgr() || isLog();
 
+    const DIRN = { '10': 'Китай', '20': 'РФ/СНГ', '30': 'Казахстан', '40': 'Европа', '50': 'Турция/Кавказ', '90': 'Прочее' };
+    const refParts = /^(\d{2})-(\d{2})-(\d{2})-(\d+)$/.exec(t.ref);
+    const refHint = refParts ? 'Менеджер №' + refParts[1] + ' · Логист №' + refParts[2] + ' · ' + (DIRN[refParts[3]] || 'напр. ' + refParts[3]) + ' · порядковый ' + refParts[4] : '';
     let body = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div><span class="mono" style="font-size:13px;color:var(--muted);">${esc(t.ref)}</span>
+        <div><span class="mono" style="font-size:13px;color:var(--muted);" title="${esc(refHint)}">${esc(t.ref)}${refHint ? ' ⓘ' : ''}</span>
         <div style="font-size:19px;font-weight:700;">${esc(t.origin)} → ${esc(t.destination)}</div></div>
         <span class="pill pill-info">${st.l}</span></div>
       <div style="height:8px;background:var(--border);border-radius:4px;margin:10px 0 4px;">
@@ -579,12 +601,22 @@
             ${Object.keys(ROLE_L).map(r => `<option value="${r}" ${p.role===r?'selected':''}>${ROLE_L[r]}</option>`).join('')}
           </select>
         </td>
+        <td>${['manager','logist','admin'].includes(p.role) ? `<input class="form-input mono" style="height:36px;width:64px;padding:0 8px;font-size:13.5px;" value="${p.staff_code != null ? String(p.staff_code).padStart(2, '0') : ''}" placeholder="—"
+          onchange="WF.setCode('${p.id}', this.value)" title="Код сотрудника для номеров перевозок">` : '<span style="color:var(--muted);">—</span>'}</td>
       </tr>`).join('');
     return `<div class="card">
       <div style="font-weight:600;margin-bottom:4px;">Пользователи и роли</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Смена роли применяется сразу. Свою роль тоже можно менять — интерфейс перезагрузится. Нельзя снять последнего администратора.</div>
-      <table class="table"><thead><tr><th>Имя</th><th>Email</th><th>Компания</th><th>Роль</th></tr></thead><tbody>${rows}</tbody></table>
+      <table class="table"><thead><tr><th>Имя</th><th>Email</th><th>Компания</th><th>Роль</th><th>Код</th></tr></thead><tbody>${rows}</tbody></table>
     </div>`;
+  }
+  async function setCode(uid, code) {
+    const n = parseInt(code, 10);
+    if (!n || n < 1 || n > 99) { showToast('warning', 'Код 01–99', 'Введите число от 1 до 99'); return; }
+    const { error } = await S().rpc('admin_set_code', { p_user: uid, p_code: n });
+    if (error) { showToast('danger', 'Ошибка', error.message); return; }
+    showToast('success', 'Код сохранён', String(n).padStart(2, '0'));
+    CACHE.loadedAt = 0; renderWF();
   }
   async function setRole(uid, role, isSelf) {
     const { error } = await S().rpc('admin_set_role', { p_user: uid, p_role: role });
@@ -656,7 +688,7 @@
     tab: t => { CACHE.tab = t; renderWF(); },
     view: v => { CACHE.view = v; renderWF(); },
     calcSum, addExpRow,
-    setRole, dash: renderWFDash,
+    setRole, setCode, dash: renderWFDash,
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,

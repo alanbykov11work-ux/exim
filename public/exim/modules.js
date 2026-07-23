@@ -161,6 +161,9 @@
   /* ============================================================
      ЧАТЫ
      ============================================================ */
+  const TRMAP = { 'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya','қ':'k','ғ':'g','ң':'n','ү':'u','ұ':'u','һ':'h','ө':'o','ә':'a','і':'i' };
+  const slug = n => n.toLowerCase().split('').map(c => TRMAP[c] !== undefined ? TRMAP[c] : c).join('').replace(/[^a-z0-9.\-_]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '') || 'file';
+  const IMG_EXT = /\.(png|jpe?g|gif|webp)$/i;
   const CHS = { list: [], active: null, sub: null, profiles: [] };
   const isStaffDb = () => ['manager', 'logist', 'admin'].includes(U().role);
 
@@ -224,6 +227,7 @@
         <div class="ch-sub" title="${esc(allNames.join(', '))}">${esc(allNames.length ? allNames.length + ' участн.: ' + mShort : '')}</div></div></div>
       <div class="ch-log" id="ch-log">${(msgs || []).map(msgHtml).join('') || '<div class="ch-empty">Сообщений пока нет</div>'}</div>
       <div class="ch-input">
+        <button class="btn btn-quiet" style="border:1px solid var(--border);background:transparent;flex:none;width:44px;" title="Прикрепить файл" onclick="CH.attach()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
         <input class="form-input" id="ch-text" placeholder="Сообщение…" onkeydown="if(event.key==='Enter')CH.send()">
         <button class="btn btn-primary" onclick="CH.send()">→</button>
       </div>`;
@@ -235,10 +239,66 @@
   }
   function msgHtml(m) {
     const mine = m.sender_id === U().id;
+    let inner;
+    if (m.file_path) {
+      const isImg = IMG_EXT.test(m.file_name || m.file_path);
+      const fid = 'att-' + Math.abs((m.file_path || '').split('').reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7));
+      inner = isImg
+        ? `<div class="ch-bubble" style="padding:4px;"><div id="${fid}" class="ch-img" onclick="CH.openFile('${esc(m.file_path)}')" style="cursor:zoom-in;">🖼 ${esc(m.file_name || 'изображение')}</div></div>`
+        : `<div class="ch-bubble ch-file" onclick="CH.openFile('${esc(m.file_path)}')">📎 ${esc(m.file_name || 'файл')}<span style="font-size:11px;opacity:.7;display:block;">нажмите, чтобы скачать</span></div>`;
+      if (isImg) setTimeout(() => fillImg(fid, m.file_path), 30);
+    } else {
+      inner = `<div class="ch-bubble">${esc(m.text)}</div>`;
+    }
     return `<div class="ch-msg ${mine ? 'mine' : ''}">
       ${mine ? '' : `<div class="ch-msg-author">${esc(pname(m.sender_id))}</div>`}
-      <div class="ch-bubble">${esc(m.text)}</div>
+      ${inner}
       <div class="ch-time">${dt(m.created_at)}</div></div>`;
+  }
+  async function fillImg(elId, path) {
+    try {
+      const { data } = await S().storage.from('documents').createSignedUrl(path, 3600);
+      const el = document.getElementById(elId);
+      if (el && data && data.signedUrl) el.innerHTML = '<img src="' + data.signedUrl + '" style="max-width:260px;max-height:220px;border-radius:9px;display:block;">';
+    } catch (e) {}
+  }
+  async function openFile(path) {
+    try {
+      const { data, error } = await S().storage.from('documents').createSignedUrl(path, 300);
+      if (error || !data) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (e) { showToast('danger', 'Ошибка', 'Не удалось открыть файл'); }
+  }
+  function attachFile() {
+    if (!CHS.active) return;
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.onchange = async () => {
+      if (!picker.files.length) return;
+      const file = picker.files[0];
+      if (file.size > 50 * 1024 * 1024) { showToast('warning', 'Файл слишком большой', 'Максимум 50 МБ'); return; }
+      const path = 'chat/' + CHS.active + '/' + Date.now() + '_' + slug(file.name);
+      const log = document.getElementById('ch-log');
+      const tmpId = 'tmp-' + Date.now();
+      if (log) {
+        log.insertAdjacentHTML('beforeend', '<div class="ch-msg mine" id="' + tmpId + '" style="opacity:.6;"><div class="ch-bubble">📎 ' + esc(file.name) + '<span style="font-size:11px;display:block;">загрузка…</span></div></div>');
+        log.scrollTop = log.scrollHeight;
+      }
+      try {
+        const { error: upErr } = await S().storage.from('documents').upload(path, file);
+        if (upErr) throw upErr;
+        const { error: msgErr } = await S().from('chat_messages').insert({ chat_id: CHS.active, sender_id: U().id, text: '📎 ' + file.name, file_path: path, file_name: file.name });
+        if (msgErr) throw msgErr;
+        const el = document.getElementById(tmpId);
+        if (el) el.remove();
+        // показать нормальный пузырь
+        if (log) { log.insertAdjacentHTML('beforeend', msgHtml({ sender_id: U().id, file_path: path, file_name: file.name, created_at: new Date().toISOString() })); log.scrollTop = log.scrollHeight; }
+      } catch (e) {
+        const el = document.getElementById(tmpId);
+        if (el) { el.style.opacity = '1'; el.querySelector('.ch-bubble').innerHTML = '📎 ' + esc(file.name) + '<span style="font-size:11px;display:block;color:#fca5b1;">не загружен: ' + esc(e.message || '') + '</span>'; }
+      }
+    };
+    picker.click();
   }
   function subscribeChat(id) {
     try {
@@ -528,7 +588,7 @@
      ИНТЕГРАЦИЯ
      ============================================================ */
   window.AN = { render: renderAnalytics };
-  window.CH = { render: renderChats, open: openChat, send: sendMsg, newChat: newChatModal, create: createChat };
+  window.CH = { render: renderChats, open: openChat, send: sendMsg, newChat: newChatModal, create: createChat, attach: attachFile, openFile };
   window.TS = { render: renderTasks, filter: f => { TSK.filter = f; renderTasks(); }, view: v => { TSK.view = v; renderTasks(); }, open: openTask, newTask: newTaskModal, create: createTask, setStatus: setTaskStatus, comment: addTaskComment };
 
   const _nav = window.navigate;

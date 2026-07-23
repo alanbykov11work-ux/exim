@@ -3122,3 +3122,7 @@ body[data-theme="dark"] .kb-card, body[data-theme="dark"] .kb-n { background: #1
 
 /* CRM скрыта у клиентов */
 body[data-role="client"] .app-nav a[data-nav="crm"] { display: none; }
+
+/* файлы в чате */
+.ch-file { cursor: pointer; }
+.ch-file:hover { filter: brightness(0.96); }

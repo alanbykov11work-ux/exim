@@ -7,6 +7,7 @@
     <nav class="app-nav">
       <a href="#dashboard" class="active" data-nav="dashboard" onclick="navigate('dashboard', event)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg><span data-i18n="nav.home">Главная</span></a>
       <a href="#shipments" data-nav="shipments" onclick="navigate('shipments', event)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg><span data-i18n="nav.shipments">Перевозки</span></a>
+      <a href="#workflow" data-nav="workflow" onclick="navigate('workflow', event)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Заявки</span></a>
       <a href="#tracking" data-nav="tracking" onclick="navigate('tracking', event)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg><span data-i18n="nav.tracking">Отслеживание</span></a>
       <a href="#containers" data-nav="containers" onclick="navigate('containers', event)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg><span data-i18n="nav.containers">Контейнеры</span></a>
       <a href="#services" data-nav="services" onclick="navigate('services', event)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg><span data-i18n="nav.services">Услуги</span></a>
@@ -159,6 +160,17 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Workflow Page -->
+      <div id="page-workflow" class="page">
+        <div class="rd-head" style="margin-bottom: 24px;">
+          <div>
+            <span class="eyebrow">Рабочий процесс</span>
+            <h1 class="rd-h1">Заявки и перевозки</h1>
+          </div>
+        </div>
+        <div id="wf-content"></div>
       </div>
 
       <!-- Shipments Page -->

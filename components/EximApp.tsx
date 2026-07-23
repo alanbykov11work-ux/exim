@@ -74,6 +74,7 @@ export default function EximApp({ user }: { user: EximUser }) {
 
     // --- глобальный мост для SPA ---
     window.__EXIM = { ...user };
+    (window as unknown as { __SUPA: unknown }).__SUPA = supabase;
     window.__EXIM_LOGOUT = async () => {
       try {
         await supabase.auth.signOut();
@@ -226,6 +227,7 @@ export default function EximApp({ user }: { user: EximUser }) {
         // 6) скрипты: Leaflet, затем логика приложения (сама вызовет initApp)
         await loadScript("/exim/leaflet.js");
         await loadScript("/exim/app.js");
+        await loadScript("/exim/workflow.js");
 
         if (!cancelled) setBooting(false);
       } catch (e) {

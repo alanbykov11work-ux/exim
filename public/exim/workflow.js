@@ -581,7 +581,6 @@
         dashCard(ready, 'расчёт готов — нужна маржа', ready > 0) +
         dashCard(waiting, 'ждут решения клиента', false) +
         dashCard(toShip, 'к оформлению перевозки', toShip > 0) +
-        dashCard(inTransit, 'перевозок в работе', false) +
         dashCard(fmtT(marginSum), 'маржа по отправленным', false);
     } else if (isLog()) {
       const my = os.filter(o => o.status === 'assigned');
@@ -600,10 +599,13 @@
         dashCard(inTransit, 'грузов в пути', false) +
         dashCard(done, 'доставлено', false);
     }
-    box.innerHTML = `<div style="margin: 4px 0 20px;">
+    box.innerHTML = `<div style="margin: 4px 0 24px;">
       <span class="eyebrow">${title}</span>
-      <div class="svc-kpis" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">${cards}</div>
+      <div class="svc-kpis wf-kpis">${cards}</div>
     </div>`;
+    // старая демо-полоса KPI дублирует показатели — скрываем
+    const legacy = document.getElementById('rd-kpis-legacy');
+    if (legacy) legacy.style.display = 'none';
   }
 
   // ---------- интеграция с приложением ----------

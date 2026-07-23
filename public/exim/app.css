@@ -3078,3 +3078,21 @@ body[data-theme="dark"] .kb-card, body[data-theme="dark"] .kb-n { background: #1
 /* логотип в сайдбаре: без плашки, выровнен с пунктами меню */
 .sb-brand { padding: 10px 14px 22px; }
 .sb-brand img { opacity: 0.98; }
+
+/* ===== Презентабельность главной ===== */
+.wf-kpis { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.wf-kpis .svc-kpi { min-height: 104px; padding: 18px 20px; }
+.wf-kpis .svc-kpi-n { font-size: 26px; line-height: 1.15; }
+.wf-kpis .svc-kpi-l { font-size: 13px; margin-top: 6px; }
+.svc-kpi { transition: box-shadow .12s ease; }
+.svc-kpi[onclick]:hover, .svc-kpi[style*="cursor"]:hover { box-shadow: 0 4px 14px rgba(15,23,42,0.10); }
+
+/* быстрые действия — одна высота, текст в одну строку, стрелка справа */
+.dash-link { height: 66px; align-items: center; }
+.dash-link > span:first-of-type,
+.dash-link span[data-i18n] { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; flex: 1; min-width: 0; }
+.dash-link .dash-link-arrow { margin-left: auto; flex: none; }
+
+/* герой + правая колонка: выравнивание по верху */
+.rd-grid { align-items: start; }
+#rd-status-line { margin-top: 0; }

@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// ВРЕМЕННО ОТКЛЮЧЕНО по решению владельца: блокировки не применяются,
+// счётчик попыток не ведётся. Вернуть: ENFORCE_LOCK = true.
+const ENFORCE_LOCK = false;
 const MAX_FAILS = 5;
 const WINDOW_SEC = 30 * 60;
 const LOCK_SEC = 30 * 60;
@@ -29,8 +32,10 @@ export async function POST(req: NextRequest) {
   const supabase = createClient();
 
   // 1) проверка блокировки ДО попытки входа
-  const { data: status } = await supabase.rpc("rate_status", { p_key: key });
-  if (status?.locked) {
+  const { data: status } = ENFORCE_LOCK
+    ? await supabase.rpc("rate_status", { p_key: key })
+    : { data: null };
+  if (ENFORCE_LOCK && status?.locked) {
     const min = Math.ceil((status.retry_after || LOCK_SEC) / 60);
     return NextResponse.json(
       { error: `Слишком много неудачных попыток. Попробуйте через ${min} мин.`, locked: true, retry_after: status.retry_after },
@@ -42,11 +47,13 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    // 3) неудача — фиксируем попытку
-    const { data: fail } = await supabase.rpc("rate_fail", {
-      p_key: key, p_max: MAX_FAILS, p_window_sec: WINDOW_SEC, p_lock_sec: LOCK_SEC,
-    });
-    if (fail?.locked) {
+    // 3) неудача — фиксируем попытку (только если защита включена)
+    const { data: fail } = ENFORCE_LOCK
+      ? await supabase.rpc("rate_fail", {
+          p_key: key, p_max: MAX_FAILS, p_window_sec: WINDOW_SEC, p_lock_sec: LOCK_SEC,
+        })
+      : { data: null };
+    if (ENFORCE_LOCK && fail?.locked) {
       return NextResponse.json(
         { error: "5 неудачных попыток — вход заблокирован на 30 минут.", locked: true, retry_after: fail.retry_after },
         { status: 429 }

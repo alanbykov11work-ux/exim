@@ -30,11 +30,14 @@ export async function POST(req: NextRequest) {
   const ip = clientIp(req);
   const supabase = createClient();
 
-  // рейт-лимит на регистрацию по IP
-  const { data: hit } = await supabase.rpc("rate_fail", {
-    p_key: `reg:${ip}`, p_max: MAX_REG + 1, p_window_sec: WINDOW_SEC, p_lock_sec: LOCK_SEC,
-  });
-  if (hit?.locked) {
+  // ВРЕМЕННО ОТКЛЮЧЕНО: лимит регистраций не применяется
+  const ENFORCE_REG_LIMIT = false;
+  const { data: hit } = ENFORCE_REG_LIMIT
+    ? await supabase.rpc("rate_fail", {
+        p_key: `reg:${ip}`, p_max: MAX_REG + 1, p_window_sec: WINDOW_SEC, p_lock_sec: LOCK_SEC,
+      })
+    : { data: null };
+  if (ENFORCE_REG_LIMIT && hit?.locked) {
     return NextResponse.json(
       { error: "Слишком много регистраций с этого адреса. Попробуйте через час." },
       { status: 429 }

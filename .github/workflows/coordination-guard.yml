@@ -1,0 +1,59 @@
+name: Coordination guard
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  repository-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reject tracked secret files
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden="$({ git ls-files | grep -Ei '(^|/)(\.env($|\.)|credentials\.json$|service-account.*\.json$|.*\.(pem|p12|pfx)$)' || true; } | grep -Ev '\.example$' || true)"
+          if [ -n "$forbidden" ]; then
+            echo "Forbidden secret-shaped files are tracked:"
+            echo "$forbidden"
+            exit 1
+          fi
+
+      - name: Reject private key material
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -E 'BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY' -- . ':!*.example' ':!docs/**' ':!.github/workflows/coordination-guard.yml' ; then
+            echo "Private key material detected"
+            exit 1
+          fi
+
+      - name: Validate Product OS lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            .repository == "https://github.com/morgiyt/exim-product-os.git" and
+            .ref == "product-os-task-2026-001-r1" and
+            .commit == "0306844716ed0ed69033e264f5398b1e992a2851" and
+            .task_id == "TASK-2026-001" and
+            .mode_during_application_work == "read_only"
+          ' docs/ai-workflow/product-os.lock.json >/dev/null
+
+      - name: Confirm required coordination files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f README.md
+          test -f AGENTS.md
+          test -f CLAUDE.md
+          test -f docs/ai-workflow/current-task.md
+          test -f docs/ai-workflow/task-registry.md

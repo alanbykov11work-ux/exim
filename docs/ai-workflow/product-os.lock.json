@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/morgiyt/exim-product-os.git",
+  "ref": "product-os-task-2026-001-r1",
+  "commit": "0306844716ed0ed69033e264f5398b1e992a2851",
+  "task_id": "TASK-2026-001",
+  "task_path": "docs/12-delivery/tasks/TASK-2026-001-foundation-gate.md",
+  "mode_during_application_work": "read_only"
+}

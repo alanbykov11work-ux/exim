@@ -30,3 +30,9 @@ Thumbs.db
 .idea/
 .vscode/
 .vercel/
+
+# --- из импортированного приложения ---
+.env.local
+.env*.local
+*.tsbuildinfo
+next-env.d.ts

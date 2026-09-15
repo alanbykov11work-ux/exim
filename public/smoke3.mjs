@@ -1,0 +1,16 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const p = await b.newPage({ viewport: { width: 1360, height: 850 } });
+const errs=[]; p.on('pageerror',e=>errs.push(e.message));
+await p.goto('http://localhost:8124/test_shell.html');
+await p.waitForTimeout(1500);
+await p.evaluate(()=>{ window.__EXIM.role='client'; switchRoleTo('client'); });
+await p.waitForTimeout(700);
+const status = await p.evaluate(()=>document.getElementById('rd-status-line')?.textContent);
+const slots = await p.evaluate(()=>document.getElementById('rd-slots')?.textContent.trim());
+await p.evaluate(()=>navigate('profile'));
+await p.waitForTimeout(700);
+const docs = await p.evaluate(()=>document.getElementById('profile-docs-body')?.textContent.trim().slice(0,60));
+console.log(JSON.stringify({status, slots: slots?.slice(0,50), docs, errs: errs.slice(0,3)}));
+await p.screenshot({path:'smoke_dash2.png'});
+await b.close();

@@ -23,8 +23,44 @@ end; $$;
 revoke all on function public.admin_set_role(uuid, text) from public;
 grant execute on function public.admin_set_role(uuid, text) to authenticated;
 
--- Выдать админа трём аккаунтам
-update public.profiles set role = 'admin'
- where email in ('morgiytgamer@gmail.com','alanbykov11work@gmail.com','alanamirkhan11@gmail.com');
+-- ------------------------------------------------------------
+-- Назначение первого администратора
+--
+-- Конкретные адреса в репозитории не хранятся: это персональные данные,
+-- и любой, кто читает публичный репозиторий, получал бы готовый список
+-- целей для атаки на аккаунты с максимальными правами.
+--
+-- Первому администратору роль выдаётся однократно вручную в Supabase
+-- SQL Editor. Подставьте адрес нужного аккаунта и выполните:
+--
+--   select public.grant_admin('admin@example.com');
+--
+-- Дальше роли меняются только из приложения через admin_set_role().
+-- Запись смены роли в аудит в текущем коде отсутствует и зафиксирована
+-- как gap Foundation Gate (REQ-004, AD-003).
+-- ------------------------------------------------------------
+create or replace function public.grant_admin(p_email text)
+returns text language plpgsql security definer set search_path = '' as $$
+declare v_id uuid; v_admins int;
+begin
+  select count(*) into v_admins from public.profiles where role = 'admin';
 
-select email, role from public.profiles order by role;
+  -- После появления первого администратора функция закрывается:
+  -- дальнейшие назначения идут только через admin_set_role() от админа.
+  if v_admins > 0 and not public.is_admin() then
+    raise exception 'администратор уже назначен — используйте admin_set_role()';
+  end if;
+
+  select id into v_id from public.profiles where lower(email) = lower(btrim(p_email));
+  if v_id is null then
+    raise exception 'пользователь с таким email не найден: сначала он должен зарегистрироваться';
+  end if;
+
+  update public.profiles set role = 'admin' where id = v_id;
+  return 'admin granted';
+end; $$;
+
+-- Вызывать может только владелец проекта из SQL Editor либо действующий админ.
+revoke all on function public.grant_admin(text) from public, anon, authenticated;
+
+select 'ADMIN ROLES OK' as result;

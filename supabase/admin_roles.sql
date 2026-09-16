@@ -35,8 +35,9 @@ grant execute on function public.admin_set_role(uuid, text) to authenticated;
 --
 --   select public.grant_admin('admin@example.com');
 --
--- Дальше роли меняются только из приложения через admin_set_role(),
--- и каждое изменение попадает в аудит.
+-- Дальше роли меняются только из приложения через admin_set_role().
+-- Запись смены роли в аудит в текущем коде отсутствует и зафиксирована
+-- как gap Foundation Gate (REQ-004, AD-003).
 -- ------------------------------------------------------------
 create or replace function public.grant_admin(p_email text)
 returns text language plpgsql security definer set search_path = '' as $$

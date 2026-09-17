@@ -4,22 +4,34 @@
 |---|---|
 | Application repository | `https://github.com/alanbykov11work-ux/exim.git` |
 | Base branch | `main` |
-| Состояние репозитория | Координационный каркас; application source отсутствует |
-| Статус | `awaiting_application_source` |
-| Planned product task | `TASK-2026-001` — Foundation Gate |
+| Состояние репозитория | Application source импортирован и проверен локально |
+| Статус | `in_progress` |
+| Current product task | `TASK-2026-001` — Foundation Gate |
 | Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` |
-| Application baseline SHA | `SET_AFTER_APPLICATION_SOURCE_IMPORT` |
-| Target environment | `SET_AFTER_DEPLOYMENT_LINKAGE_VERIFICATION` |
+| Application baseline SHA | `64017a5d46ab54eae492fc9b0e2987e214f81782` |
+| Implementation branch | `task/TASK-2026-001-foundation-wave-1` |
+| Target environment | Локальная source-only проверка; отдельный Preview/test Supabase ещё `BLOCKED` |
 | Production deploy | `FORBIDDEN` |
-| Следующее действие | Интегратор загружает существующий Super App через `import/application-baseline` PR |
+| Следующее действие | Codex реализует и проверяет Wave 1; hosted RLS/E2E не выдаются за выполненные до появления test Supabase |
 
-## Почему реализация ещё не стартует
+## Текущая граница выполнения
 
-В GitHub пока нет исходного кода работающего приложения, manifests, миграций и тестов. Без них нельзя доказать стек, baseline и связь с Preview. Claude запрещено закрывать этот пробел новым scaffold или кодом другого проекта.
+Исходный код, manifests и SQL импортированы в `main`. Владелец поручил Codex продолжить реализацию напрямую. Локальная работа и проверки разрешены; production, реальные данные и секреты запрещены. Применение SQL, семь role/scope accounts и hosted Preview остаются `BLOCKED`, пока не подтверждён отдельный test Supabase project.
 
-## Автоматический переход к работе
+## Проверенный preflight
 
-После merge исходного приложения task curator проверяет код и заменяет оба `SET_AFTER_...` точными значениями. Если дерево чистое, Preview/test-среда безопасна и противоречий нет, статус меняется на `ready`. После этого Claude начинает `TASK-2026-001` без нового общего разрешения владельца.
+- origin: `https://github.com/alanbykov11work-ux/exim.git`;
+- clean base: `main` @ `64017a5d46ab54eae492fc9b0e2987e214f81782`;
+- stack: Next.js 14 / React 18 / TypeScript / Supabase;
+- Product OS: `product-os-task-2026-001-r1` @ `0306844716ed0ed69033e264f5398b1e992a2851`, read-only;
+- baseline build и typecheck проходят с process-only placeholder public Supabase values;
+- production deployment не выполняется.
+
+## История
+
+| Дата | Было | Стало | Actor | Причина |
+|---|---|---|---|---|
+| 2026-09-17 | `awaiting_application_source` | `in_progress` | Codex task curator по прямому поручению владельца | Source подтверждён на exact baseline; разрешена локальная реализация без production |
 
 ## Обязательное чтение перед TASK-2026-001
 

@@ -18,6 +18,7 @@ function LoginInner() {
       ? "Почта подтверждена! Войдите со своим email и паролем."
       : null
   );
+  const callbackError = params.get("auth_error");
   const [loading, setLoading] = useState(false);
 
   // Если в URL пришли токены (#access_token=...) или сессия уже есть —
@@ -90,7 +91,12 @@ function LoginInner() {
           <span className="eyebrow">Вход в систему</span>
           <h2>Добро пожаловать</h2>
 
-          {info && !error && <div className="auth-msg ok">{info}</div>}
+          {callbackError && !error && (
+            <div className="auth-msg error">
+              Ссылка подтверждения недействительна или устарела. Запросите новое письмо.
+            </div>
+          )}
+          {info && !error && !callbackError && <div className="auth-msg ok">{info}</div>}
           {error && <div className="auth-msg error">{error}</div>}
 
           <div className="form-group">

@@ -30,5 +30,6 @@
 
 | Дата | Было | Стало | Actor | Причина |
 |---|---|---|---|---|
+| 2026-09-17 | `TASK-2026-002 submitted attempt 01` | `changes_requested → in_progress → submitted attempt 02` | Пользовательское runtime evidence + Codex task curator | Публичная регистрация показала reverse-proxy Origin `403`; policy исправлена без доверия forwarded headers, добавлены tests, exact commit развёрнут и повторно проверен |
 | 2026-09-17 | `TASK-2026-002 in_progress` | `TASK-2026-002 submitted` | Codex task curator | PR #6, public preview, full submission/evidence, backup/export/restore и regression evidence опубликованы; независимый review ещё не выполнен |
 | 2026-09-17 | `TASK-2026-001 in_progress` | `TASK-2026-002 in_progress` | Codex task curator по прямому поручению владельца | Владелец выбрал самостоятельный managed server и PostgreSQL вместо ожидания Supabase/integrator |

@@ -137,9 +137,13 @@
 
     function switchRole(role, event) {
       const own = (window.__EXIM && window.__EXIM.role) || 'client';
-      if (own === 'client' && role !== 'client') { showToast('warning', 'Недостаточно прав', 'Смена роли доступна только сотрудникам EXIM'); return; }
-      APP_STATE.currentRole = role;
-      document.body.setAttribute('data-role', role);
+      const effectiveOwn = own === 'admin' ? 'manager' : own;
+      if (role !== effectiveOwn) {
+        showToast('warning', 'Недостаточно прав', 'Рабочая роль назначается администратором компании');
+        return;
+      }
+      APP_STATE.currentRole = effectiveOwn;
+      document.body.setAttribute('data-role', effectiveOwn);
 
       // Update role switcher
       document.querySelectorAll('.role-switcher button').forEach(btn => {
@@ -148,13 +152,13 @@
       if (event && event.currentTarget) event.currentTarget.classList.add('active');
 
       // Navigate to appropriate page
-      if (role === 'manager' || role === 'logist') {
+      if (effectiveOwn === 'manager' || effectiveOwn === 'logist') {
         navigate('margin');
       } else {
         navigate('dashboard');
       }
 
-      showToast('success', 'Роль изменена', `Вы переключились на роль: ${role === 'client' ? 'Клиент' : role === 'manager' ? 'Менеджер' : 'Логист'}`);
+      showToast('info', 'Рабочая роль', effectiveOwn === 'client' ? 'Клиент' : effectiveOwn === 'manager' ? 'Менеджер' : 'Логист');
     }
 
     function logout() {
@@ -2026,9 +2030,7 @@
 
       // Auth: сессия и роль приходят из Next.js / Supabase
       const exim = window.__EXIM || { role: 'client' };
-      if ((exim.role || 'client') === 'client') {
-        document.querySelectorAll('.role-switcher').forEach(function(el) { el.style.display = 'none'; });
-      }
+      document.querySelectorAll('.role-switcher').forEach(function(el) { el.style.display = 'none'; });
       switchRoleTo(exim.role === 'manager' || exim.role === 'logist' || exim.role === 'admin' ? (exim.role === 'admin' ? 'manager' : exim.role) : 'client');
       updateFormStep();
     }

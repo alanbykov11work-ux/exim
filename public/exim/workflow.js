@@ -7,16 +7,13 @@
 (function () {
   const S = () => window.__SUPA;
   const U = () => window.__EXIM || {};
-  // Реальная роль (права в БД) и роль просмотра (переключатель в шапке)
+  // Роль приходит из server-validated membership. APP_STATE и элементы UI
+  // никогда не повышают права пользователя.
   const dbRole = () => U().role || 'client';
   const effRole = () => {
     const dbr = dbRole();
-    if (!['admin', 'manager', 'logist'].includes(dbr)) return 'client';
-    const vr = (window.APP_STATE && window.APP_STATE.currentRole) || null;
-    if (vr === 'client') return 'client';
-    if (vr === 'logist') return 'logist';
-    if (vr === 'manager') return 'manager';
-    return dbr === 'admin' ? 'manager' : dbr;
+    if (dbr === 'admin') return 'manager';
+    return ['manager', 'logist'].includes(dbr) ? dbr : 'client';
   };
   const isMgr = () => effRole() === 'manager';
   const isLog = () => effRole() === 'logist';
@@ -61,16 +58,8 @@
       s.from('transports').select('*').order('created_at', { ascending: false })
     ]);
     let allOrders = orders || [], allTrans = transports || [];
-    // режим просмотра «как клиент/логист» у персонала: показываем соответствующий срез
-    if (['admin', 'manager', 'logist'].includes(dbRole())) {
-      if (effRole() === 'client') {
-        allOrders = allOrders.filter(o => o.client_id === U().id || o.created_by === U().id);
-        allTrans = allTrans.filter(t => t.client_id === U().id);
-      } else if (effRole() === 'logist') {
-        allOrders = allOrders.filter(o => o.logist_id === U().id);
-        allTrans = allTrans.filter(t => t.logist_id === U().id);
-      }
-    }
+    // Серверная RLS уже вернула только разрешённый scope. Локальная фильтрация
+    // остаётся лишь представлением и не используется как защита.
     CACHE.orders = allOrders;
     CACHE.transports = allTrans;
     if (isMgr() || isLog()) {

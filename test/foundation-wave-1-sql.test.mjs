@@ -31,6 +31,9 @@ test("client-company access and module access are enforced server-side", async (
   assert.match(sql, /and entitlement\.enabled/i);
   assert.match(sql, /tenant_admin_upsert_membership/i);
   assert.match(sql, /insert into public\.tenant_audit_events/i);
+  assert.match(sql, /create or replace function public\.can_read_profile/i);
+  assert.match(sql, /profiles tenant scoped read/i);
+  assert.match(sql, /revoke all on function public\.admin_set_role/i);
 });
 
 test("organization capabilities are multi-valued and inert", async () => {

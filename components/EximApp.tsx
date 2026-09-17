@@ -7,6 +7,8 @@ export type EximUser = {
   id: string;
   email: string;
   role: string;
+  workspaceId: string;
+  clientCompanyId: string | null;
   fullName: string;
   company: string;
   phone: string;

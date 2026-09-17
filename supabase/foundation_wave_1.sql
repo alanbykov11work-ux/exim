@@ -183,6 +183,27 @@ as $function$
     )
 $function$;
 
+create or replace function public.can_read_profile(p_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = ''
+stable
+as $function$
+  select p_user_id = auth.uid()
+    or exists (
+      select 1
+      from public.workspace_memberships actor
+      join public.workspace_memberships target
+        on target.workspace_id = actor.workspace_id
+       and target.user_id = p_user_id
+       and target.status = 'active'
+      where actor.user_id = auth.uid()
+        and actor.status = 'active'
+        and actor.role in ('manager', 'logistician', 'tenant_admin')
+    )
+$function$;
+
 create or replace function public.tenant_admin_upsert_membership(
   p_workspace_id uuid,
   p_user_id uuid,
@@ -363,6 +384,13 @@ alter table public.organization_capabilities enable row level security;
 alter table public.module_entitlements enable row level security;
 alter table public.tenant_audit_events enable row level security;
 
+drop policy if exists "profiles: read own or staff" on public.profiles;
+drop policy if exists "profiles staff visible" on public.profiles;
+drop policy if exists "profiles tenant scoped read" on public.profiles;
+create policy "profiles tenant scoped read" on public.profiles for select using (
+  public.can_read_profile(id)
+);
+
 drop policy if exists "organizations scoped read" on public.organizations;
 create policy "organizations scoped read" on public.organizations for select using (
   exists (
@@ -443,9 +471,15 @@ revoke all on function public.is_workspace_member(uuid) from public, anon;
 revoke all on function public.has_workspace_role(uuid, text[]) from public, anon;
 revoke all on function public.can_access_client_company(uuid, uuid) from public, anon;
 revoke all on function public.has_module_entitlement(uuid, text) from public, anon;
+revoke all on function public.can_read_profile(uuid) from public, anon;
 grant execute on function public.is_workspace_member(uuid) to authenticated;
 grant execute on function public.has_workspace_role(uuid, text[]) to authenticated;
 grant execute on function public.can_access_client_company(uuid, uuid) to authenticated;
 grant execute on function public.has_module_entitlement(uuid, text) to authenticated;
+grant execute on function public.can_read_profile(uuid) to authenticated;
+
+-- Global profile roles are legacy display data. They must no longer be
+-- writable through the old cross-tenant RPC after memberships become active.
+revoke all on function public.admin_set_role(uuid, text) from public, anon, authenticated;
 
 commit;

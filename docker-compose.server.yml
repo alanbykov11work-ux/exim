@@ -62,8 +62,10 @@ services:
     volumes:
       - documents_data:/var/lib/exim-superapp/documents
     networks:
-      - backend
-      - caddy
+      backend:
+      caddy:
+        aliases:
+          - exim-superapp
     expose:
       - "3000"
     healthcheck:

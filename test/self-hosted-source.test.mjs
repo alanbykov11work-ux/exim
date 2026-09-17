@@ -38,8 +38,8 @@ test("server compose keeps database private and separates edge networking", asyn
   assert.doesNotMatch(dbBlock, /\n\s+ports:/);
   assert.match(dbBlock, /- backend/);
   assert.doesNotMatch(dbBlock, /- caddy/);
-  assert.match(webBlock, /- backend/);
-  assert.match(webBlock, /- caddy/);
+  assert.match(webBlock, /networks:\n\s+backend:/);
+  assert.match(webBlock, /caddy:\n\s+aliases:\n\s+- exim-superapp/);
   assert.match(compose, /backend:\n\s+internal: true/);
 });
 

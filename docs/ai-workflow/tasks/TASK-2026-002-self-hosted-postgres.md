@@ -1,6 +1,6 @@
 # TASK-2026-002 — Self-hosted PostgreSQL preview
 
-Статус: `in_progress`
+Статус: `submitted`
 Baseline: `ea049dca75e3a2e0f1e936156ab8c7fc80091e7a`
 Branch: `task/TASK-2026-002-self-hosted-postgres`
 Environment: managed preview, synthetic data only

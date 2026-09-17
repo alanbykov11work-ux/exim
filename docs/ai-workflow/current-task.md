@@ -3,7 +3,7 @@
 | Поле | Значение |
 |---|---|
 | Application repository | `https://github.com/alanbykov11work-ux/exim.git` |
-| Статус | `in_progress` |
+| Статус | `submitted` |
 | Current application task | `TASK-2026-002` — self-hosted PostgreSQL preview |
 | Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` — read-only product scope |
 | Application baseline | `ea049dca75e3a2e0f1e936156ab8c7fc80091e7a` |
@@ -11,7 +11,7 @@
 | Target environment | отдельный managed preview `superapp.185-129-49-242.sslip.io` |
 | Data class | только синтетические test data; реальные клиентские данные запрещены |
 | Production switch | `FORBIDDEN` до отдельной приёмки владельца |
-| Следующее действие | завершить isolated deploy, backup/restore drill, auth/tenant E2E и отчёт |
+| Следующее действие | независимый review PR [#6](https://github.com/alanbykov11work-ux/exim/pull/6) и exact deployed app commit `3a94d0009c5996febf400aab9af7281eee9af95c`; human acceptance остаётся отдельным шагом |
 
 ## Owner directive
 
@@ -30,4 +30,5 @@
 
 | Дата | Было | Стало | Actor | Причина |
 |---|---|---|---|---|
+| 2026-09-17 | `TASK-2026-002 in_progress` | `TASK-2026-002 submitted` | Codex task curator | PR #6, public preview, full submission/evidence, backup/export/restore и regression evidence опубликованы; независимый review ещё не выполнен |
 | 2026-09-17 | `TASK-2026-001 in_progress` | `TASK-2026-002 in_progress` | Codex task curator по прямому поручению владельца | Владелец выбрал самостоятельный managed server и PostgreSQL вместо ожидания Supabase/integrator |

@@ -1,0 +1,167 @@
+name: exim-superapp
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-exim_superapp}
+      POSTGRES_USER: ${POSTGRES_USER:-exim_superapp_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in the server environment}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD must be set in the server environment}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    image: postgres:16-alpine
+    profiles: ["ops"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL must be set in the server environment}
+    volumes:
+      - ./db/migrations:/migrations:ro
+      - ./scripts/server:/scripts:ro
+    networks:
+      - backend
+    entrypoint: ["/bin/sh", "/scripts/migrate.sh"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${SUPERAPP_IMAGE:-exim-superapp:local}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in the server environment}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in the server environment}
+      APP_BASE_URL: ${APP_BASE_URL:?APP_BASE_URL must be set in the server environment}
+      EMAIL_VERIFICATION_MODE: ${EMAIL_VERIFICATION_MODE:-disabled}
+      DOCUMENTS_ROOT: /var/lib/exim-superapp/documents
+    volumes:
+      - documents_data:/var/lib/exim-superapp/documents
+    networks:
+      - backend
+      - caddy
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/.next/cache:size=128m,uid=1000,gid=1000,mode=0750
+    security_opt:
+      - no-new-privileges:true
+
+  db-backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:?BACKUP_DATABASE_URL must be set in the server environment}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - postgres_backups:/backups
+      - ./scripts/server:/scripts:ro
+    networks:
+      - backend
+    entrypoint: ["/bin/sh", "/scripts/backup-loop.sh"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
+  backup-once:
+    image: postgres:16-alpine
+    profiles: ["ops"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:?BACKUP_DATABASE_URL must be set in the server environment}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - postgres_backups:/backups
+      - ./scripts/server:/scripts:ro
+    networks:
+      - backend
+    entrypoint: ["/bin/sh", "/scripts/backup.sh"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
+  restore:
+    image: postgres:16-alpine
+    profiles: ["ops"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RESTORE_DATABASE_URL: ${RESTORE_DATABASE_URL:-}
+      RESTORE_CONFIRM: ${RESTORE_CONFIRM:-}
+      BACKUP_FILE: ${BACKUP_FILE:-}
+      BACKUP_DIR: /backups
+    volumes:
+      - postgres_backups:/backups:ro
+      - ./scripts/server:/scripts:ro
+    networks:
+      - backend
+    entrypoint: ["/bin/sh", "/scripts/restore.sh"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  postgres_data:
+  documents_data:
+  postgres_backups:
+
+networks:
+  backend:
+    internal: true
+  caddy:
+    name: ${CADDY_NETWORK:-exim-superapp_caddy}
+    external: ${CADDY_NETWORK_EXTERNAL:-false}

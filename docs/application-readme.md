@@ -1,73 +1,63 @@
-# EXIM Super App — полноценная версия
+# EXIM Super App — приложение и backend
 
-Прототип превращён в реальное приложение: **Next.js 14 + Supabase** (Postgres, авторизация с email-верификацией, разграничение прав). Весь интерфейс прототипа сохранён: дашборд, перевозки, трекинг на карте, контейнеры, услуги, чаты, инвойсы, уведомления, RU/KZ/EN, светлая/тёмная тема.
+## Стек
 
-## Что изменилось по сравнению с прототипом
+- Next.js 15 / React 18 / TypeScript;
+- PostgreSQL 16;
+- серверные route handlers для auth, профиля, состояния, документов и tenant-scoped чтения workflow;
+- opaque sessions: случайный токен хранится только в защищённой cookie, в базе хранится HMAC/SHA-256 digest;
+- пароли: Node.js `scrypt` с уникальной солью;
+- приватные документы: отдельный файловый volume, метаданные и SHA-256 в PostgreSQL.
 
-- Настоящая регистрация и вход (Supabase Auth): пароль, **подтверждение email обязательно** — без него в приложение не пустит (контролируется на сервере, в middleware).
-- Восстановление пароля по почте.
-- Роли хранятся в базе: `client` / `manager` / `logist` / `admin`. При самостоятельной регистрации всегда `client`; клиент не может переключиться в менеджера (проверка и в UI, и политиками БД).
-- Все данные (перевозки, заявки, чаты, задачи, уведомления, профиль, настройки) синхронизируются в Postgres per-user, изолированы Row Level Security. Работает с любого устройства.
-- KYC-поле `verified` в профиле — менеджер/админ отмечает проверенные компании.
+Браузер не знает пароль базы и не подключается к PostgreSQL напрямую.
 
-## Запуск: 3 шага
+## Локальный запуск
 
-### 1. Supabase (бесплатный тариф достаточен)
-
-1. [supabase.com](https://supabase.com) → New project.
-2. SQL Editor → вставьте содержимое `supabase/schema.sql` → **Run**.
-3. Authentication → Providers → Email: включён, **Confirm email = ON** (по умолчанию включено).
-4. Authentication → URL Configuration → Site URL: адрес вашего сайта (для локали `http://localhost:3000`), в Redirect URLs добавьте `http://localhost:3000/auth/callback` и продовый `https://ваш-домен/auth/callback`.
-5. Project Settings → API → скопируйте `URL` и `anon public` ключ.
-
-### 2. Локальный запуск
+1. Поднять PostgreSQL 16.
+2. Создать owner и ограниченного пользователя приложения.
+3. Выполнить `db/migrations/0001_self_hosted_core.sql` owner-подключением.
+4. Скопировать `.env.example` в локальный `.env.local` и заменить значения.
+5. Запустить:
 
 ```bash
-cp .env.example .env.local   # вставьте URL и anon key
-npm install
-npm run dev                  # http://localhost:3000
+npm ci
+npm run dev
 ```
 
-### 3. Деплой на Vercel
+Для серверного контура использовать только [`self-hosting.md`](self-hosting.md) и `docker-compose.server.yml`.
 
-1. Залейте папку в GitHub-репозиторий.
-2. [vercel.com](https://vercel.com) → Add New Project → импортируйте репозиторий.
-3. В Environment Variables добавьте `NEXT_PUBLIC_SUPABASE_URL` и `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-4. Deploy. После деплоя добавьте прод-домен в Supabase (Site URL + Redirect URLs, шаг 1.4).
+## Что уже перенесено с Supabase
 
-## Администрирование
+- регистрация и вход;
+- rate limiting входа и регистрации;
+- server-side session и logout;
+- организация, workspace, client company и membership при саморегистрации;
+- профиль и пользовательское состояние;
+- приватная загрузка, чтение и удаление документов;
+- отдельная PostgreSQL-схема всех текущих бизнес-таблиц;
+- tenant-scoped read snapshot заявок и перевозок;
+- health/readiness endpoints;
+- ежедневные `pg_dump -Fc`, checksum, retention и guarded restore.
 
-Назначить сотрудника (в Supabase → SQL Editor):
+## Что ещё не считается готовым
 
-```sql
-update public.profiles set role = 'manager' where email = 'manager@exim.kz';
-update public.profiles set role = 'logist'  where email = 'logist@exim.kz';
+- SMTP-подтверждение почты и реальный password reset;
+- write API заявок/ставок/предложений/перевозок;
+- CRM write API;
+- chats/tasks write API и realtime;
+- админское управление membership;
+- полная RLS defense-in-depth на обычном PostgreSQL;
+- перенос любых данных из внешнего Supabase — выгрузка не предоставлена и не выполнялась.
+
+Пока эти пункты не закрыты, серверный origin является preview/staging. Старый интерфейс сохранён, но неподключённые операции возвращают явную ошибку, а не делают вид, что данные записаны.
+
+## Экспорт и перенос базы
+
+База полностью переносима:
+
+```bash
+pg_dump --format=custom --no-owner --no-acl
+pg_restore --clean --if-exists --no-owner
 ```
 
-Отметить компанию клиента как проверенную (KYC):
-
-```sql
-update public.profiles set verified = true where email = 'client@company.kz';
-```
-
-## Письма (важно для продакшена)
-
-Встроенная почта Supabase лимитирована (~3-4 письма/час) и годится только для тестов. Для продакшена подключите свой SMTP: Supabase → Project Settings → Auth → SMTP Settings (подойдёт Resend, Postmark, SES, Mailgun). Там же можно русифицировать шаблоны писем (Auth → Email Templates).
-
-## Структура
-
-```
-app/                 — маршруты Next.js (login, register, verify, reset, app)
-components/          — AuthHero, EximApp (загрузчик основного приложения)
-lib/supabase/        — клиенты Supabase (browser / server)
-middleware.ts        — защита маршрутов + принудительная верификация email
-public/exim/         — ядро приложения (интерфейс прототипа: css, js, разметка, Leaflet, шрифты)
-supabase/schema.sql  — схема БД: профили, состояние, RLS-политики, триггеры
-```
-
-## Дорожная карта (следующие итерации)
-
-- Общие данные между клиентом и менеджером: перенос заявок/чатов из per-user состояния в общие реляционные таблицы + Supabase Realtime (живой чат клиент ↔ менеджер).
-- SMS-верификация телефона (Mobizon/SMSC + Supabase Phone Auth).
-- Загрузка документов в Supabase Storage (инвойсы, CMR, таможенные декларации).
-- Админ-панель верификации компаний вместо SQL-запросов.
+Практические команды, volume и restore drill описаны в [`self-hosting.md`](self-hosting.md). Документы экспортируются отдельно от базы и должны иметь тот же backup identifier.

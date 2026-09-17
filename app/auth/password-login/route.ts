@@ -1,86 +1,66 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { query } from "@/lib/db";
+import { sameOrigin, requestIp } from "@/lib/auth/request";
+import { clearFailures, rateLimitStatus, recordFailure } from "@/lib/auth/rate-limit";
+import { createSession } from "@/lib/auth/session";
+import { verifyPassword } from "@/lib/auth/password";
 
-// ВРЕМЕННО ОТКЛЮЧЕНО по решению владельца: блокировки не применяются,
-// счётчик попыток не ведётся. Вернуть: ENFORCE_LOCK = true.
-const ENFORCE_LOCK = false;
-const MAX_FAILS = 5;
-const WINDOW_SEC = 30 * 60;
-const LOCK_SEC = 30 * 60;
+const MAX_FAILURES = 5;
+const WINDOW_SECONDS = 30 * 60;
+const LOCK_SECONDS = 30 * 60;
 
-function clientIp(req: NextRequest) {
-  const fwd = req.headers.get("x-forwarded-for");
-  return (fwd ? fwd.split(",")[0] : "").trim() || "unknown";
-}
-
-export async function POST(req: NextRequest) {
-  let email = "";
-  let password = "";
-  try {
-    const body = await req.json();
-    email = String(body.email || "").trim().toLowerCase();
-    password = String(body.password || "");
-  } catch {
-    return NextResponse.json({ error: "bad request" }, { status: 400 });
+export async function POST(request: NextRequest) {
+  if (!sameOrigin(request)) {
+    return NextResponse.json({ error: "Недопустимый источник запроса." }, { status: 403 });
   }
+  const body = await request.json().catch(() => ({}));
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
   if (!email || !password) {
-    return NextResponse.json({ error: "Укажите email и пароль" }, { status: 400 });
+    return NextResponse.json({ error: "Укажите email и пароль." }, { status: 400 });
   }
 
-  const ip = clientIp(req);
-  const key = `login:${email}:${ip}`;
-  const supabase = await createClient();
-
-  // 1) проверка блокировки ДО попытки входа
-  const { data: status } = ENFORCE_LOCK
-    ? await supabase.rpc("rate_status", { p_key: key })
-    : { data: null };
-  if (ENFORCE_LOCK && status?.locked) {
-    const min = Math.ceil((status.retry_after || LOCK_SEC) / 60);
+  const key = `login:${email}:${requestIp(request)}`;
+  const status = await rateLimitStatus(key, MAX_FAILURES);
+  if (status.locked) {
     return NextResponse.json(
-      { error: `Слишком много неудачных попыток. Попробуйте через ${min} мин.`, locked: true, retry_after: status.retry_after },
+      { error: "Слишком много попыток. Попробуйте позже.", retry_after: status.retryAfter },
       { status: 429 }
     );
   }
 
-  // 2) попытка входа
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    // 3) неудача — фиксируем попытку (только если защита включена)
-    const { data: fail } = ENFORCE_LOCK
-      ? await supabase.rpc("rate_fail", {
-          p_key: key, p_max: MAX_FAILS, p_window_sec: WINDOW_SEC, p_lock_sec: LOCK_SEC,
-        })
-      : { data: null };
-    if (ENFORCE_LOCK && fail?.locked) {
-      return NextResponse.json(
-        { error: "5 неудачных попыток — вход заблокирован на 30 минут.", locked: true, retry_after: fail.retry_after },
-        { status: 429 }
-      );
-    }
-    const left = fail?.left ?? null;
-    const isCreds = /invalid login/i.test(error.message);
-    const isUnconfirmed = /not confirmed/i.test(error.message);
+  const result = await query<{
+    id: string;
+    password_hash: string;
+    email_confirmed_at: string | null;
+  }>(
+    "select id, password_hash, email_confirmed_at from app_users where email = $1 limit 1",
+    [email]
+  );
+  const user = result.rows[0];
+  const valid = user ? await verifyPassword(password, user.password_hash) : false;
+  if (!user || !valid) {
+    const failure = await recordFailure(key, MAX_FAILURES, WINDOW_SECONDS, LOCK_SECONDS);
     return NextResponse.json(
       {
-        error: isUnconfirmed
-          ? "Почта ещё не подтверждена. Проверьте входящие."
-          : isCreds
-            ? `Неверный email или пароль.${left != null ? ` Осталось попыток: ${left}.` : ""}`
-            : error.message,
-        left,
-        unconfirmed: isUnconfirmed,
+        error: failure.locked
+          ? "Вход временно заблокирован на 30 минут."
+          : `Неверный email или пароль. Осталось попыток: ${failure.left}.`,
+        left: failure.left,
       },
+      { status: failure.locked ? 429 : 401 }
+    );
+  }
+
+  if (!user.email_confirmed_at) {
+    return NextResponse.json(
+      { error: "Почта ещё не подтверждена.", unconfirmed: true },
       { status: 401 }
     );
   }
 
-  // 4) успех — сбрасываем счётчик (уже авторизованы, функция проверит право)
-  try { await supabase.rpc("rate_clear", { p_key: key }); } catch {}
-
-  return NextResponse.json({
-    ok: true,
-    confirmed: !!data.user?.email_confirmed_at,
-  });
+  await clearFailures(key);
+  const response = NextResponse.json({ ok: true, confirmed: true });
+  await createSession(user.id, response);
+  return response;
 }

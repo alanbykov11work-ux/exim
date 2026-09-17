@@ -3,49 +3,31 @@
 | Поле | Значение |
 |---|---|
 | Application repository | `https://github.com/alanbykov11work-ux/exim.git` |
-| Base branch | `main` |
-| Состояние репозитория | Application source импортирован и проверен локально |
 | Статус | `in_progress` |
-| Current product task | `TASK-2026-001` — Foundation Gate |
-| Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` |
-| Application baseline SHA | `64017a5d46ab54eae492fc9b0e2987e214f81782` |
-| Implementation branch | `task/TASK-2026-001-foundation-wave-1` |
-| Target environment | Локальная source-only проверка; отдельный Preview/test Supabase ещё `BLOCKED` |
-| Production deploy | `FORBIDDEN` |
-| Следующее действие | Codex реализует и проверяет Wave 1; hosted RLS/E2E не выдаются за выполненные до появления test Supabase |
+| Current application task | `TASK-2026-002` — self-hosted PostgreSQL preview |
+| Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` — read-only product scope |
+| Application baseline | `ea049dca75e3a2e0f1e936156ab8c7fc80091e7a` |
+| Implementation branch | `task/TASK-2026-002-self-hosted-postgres` |
+| Target environment | отдельный managed preview `superapp.185-129-49-242.sslip.io` |
+| Data class | только синтетические test data; реальные клиентские данные запрещены |
+| Production switch | `FORBIDDEN` до отдельной приёмки владельца |
+| Следующее действие | завершить isolated deploy, backup/restore drill, auth/tenant E2E и отчёт |
 
-## Текущая граница выполнения
+## Owner directive
 
-Исходный код, manifests и SQL импортированы в `main`. Владелец поручил Codex продолжить реализацию напрямую. Локальная работа и проверки разрешены; production, реальные данные и секреты запрещены. Применение SQL, семь role/scope accounts и hosted Preview остаются `BLOCKED`, пока не подтверждён отдельный test Supabase project.
+17 сентября 2026 владелец прямо поручил скопировать текущую Super App на существующий managed server, развернуть её отдельным сервисом и заменить Supabase на переносимую SQL-базу на сервере. Это более новое указание отменяет прежний технический blocker «нужен test Supabase», но не разрешает смешивать базы Hub/Super App, использовать реальные данные или переключать публичный production origin.
 
-## Проверенный preflight
+## Граница выполнения
 
-- origin: `https://github.com/alanbykov11work-ux/exim.git`;
-- clean base: `main` @ `64017a5d46ab54eae492fc9b0e2987e214f81782`;
-- stack: Next.js 14 / React 18 / TypeScript / Supabase;
-- Product OS: `product-os-task-2026-001-r1` @ `0306844716ed0ed69033e264f5398b1e992a2851`, read-only;
-- baseline build и typecheck проходят с process-only placeholder public Supabase values;
-- production deployment не выполняется.
+- отдельный Compose project, PostgreSQL, документы, секреты и backups;
+- Next.js остаётся приложением и server-side API;
+- Hub и Super App не объединяются; первый контракт остаётся link-first;
+- Foundation Wave 1 изменения из `ea049dc` сохранены как база этой ветки;
+- старые `supabase/**` остаются историческими, runtime Supabase удаляется;
+- первый deploy может быть только честным preview: неподключённые write-модули явно блокируются.
 
 ## История
 
 | Дата | Было | Стало | Actor | Причина |
 |---|---|---|---|---|
-| 2026-09-17 | `awaiting_application_source` | `in_progress` | Codex task curator по прямому поручению владельца | Source подтверждён на exact baseline; разрешена локальная реализация без production |
-
-## Обязательное чтение перед TASK-2026-001
-
-В закреплённом Product OS полностью прочитать:
-
-- `README.md` и `AGENTS.md`;
-- `docs/12-delivery/README.md`;
-- `docs/12-delivery/current-task.md`;
-- `docs/12-delivery/tasks/TASK-2026-001-foundation-gate.md`;
-- `docs/01-foundation/product-foundation.md`;
-- `docs/01-foundation/decisions.md`;
-- `docs/09-decisions/open-questions.md`;
-- `docs/06-requirements/index.md` и `REQ-001`…`REQ-006`;
-- `docs/04-pages/foundation-gate-contracts.md`;
-- `docs/07-mvp/foundation-gate.md`;
-- `docs/10-implementation/current-state.md`;
-- `docs/10-implementation/audits/2026-09-04-super-app-live-audit.md`.
+| 2026-09-17 | `TASK-2026-001 in_progress` | `TASK-2026-002 in_progress` | Codex task curator по прямому поручению владельца | Владелец выбрал самостоятельный managed server и PostgreSQL вместо ожидания Supabase/integrator |

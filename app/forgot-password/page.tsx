@@ -2,28 +2,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import AuthHero from "@/components/AuthHero";
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient();
   const [email, setEmail] = useState("");
-  const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setBusy(true);
-    setMsg(null);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
+    await fetch("/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim() }),
+    }).catch(() => null);
     setBusy(false);
-    setMsg(
-      error
-        ? { kind: "error", text: error.message }
-        : { kind: "ok", text: "Если такой аккаунт существует — письмо для сброса пароля отправлено." }
-    );
+    setMessage("Если аккаунт существует, инструкция будет отправлена после подключения почтового сервиса.");
   }
 
   return (
@@ -33,28 +28,13 @@ export default function ForgotPasswordPage() {
         <form className="auth-card" onSubmit={onSubmit}>
           <span className="eyebrow">Восстановление доступа</span>
           <h2>Сброс пароля</h2>
-
-          {msg && <div className={`auth-msg ${msg.kind}`}>{msg.text}</div>}
-
+          {message && <div className="auth-msg info">{message}</div>}
           <div className="form-group">
             <label className="form-label">Email</label>
-            <input
-              type="email"
-              className="form-input"
-              placeholder="you@company.kz"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <input type="email" className="form-input" value={email} onChange={(event) => setEmail(event.target.value)} required />
           </div>
-
-          <button className="btn btn-primary btn-lg" disabled={busy}>
-            {busy ? "Отправляем…" : "Отправить ссылку для сброса"}
-          </button>
-
-          <div className="auth-alt">
-            <Link href="/login">← Вернуться ко входу</Link>
-          </div>
+          <button className="btn btn-primary btn-lg" disabled={busy}>{busy ? "Отправляем…" : "Запросить восстановление"}</button>
+          <div className="auth-alt"><Link href="/login">← Вернуться ко входу</Link></div>
         </form>
       </div>
     </div>

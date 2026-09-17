@@ -63,7 +63,12 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/verify?sent=1&email=" + encodeURIComponent(form.email.trim()));
+    if (j.confirmed) {
+      router.push("/app");
+      router.refresh();
+    } else {
+      router.push("/verify?sent=1&email=" + encodeURIComponent(form.email.trim()));
+    }
   }
 
   return (
@@ -146,8 +151,8 @@ export default function RegisterPage() {
           </button>
 
           <div className="form-hint" style={{ marginTop: 12, textAlign: "center" }}>
-            После регистрации мы отправим письмо для подтверждения почты.
-            Роли «Менеджер» и «Логист» назначает администратор.
+            В тестовом серверном контуре аккаунт активируется сразу. Перед публичным запуском
+            будет включено подтверждение почты. Роли «Менеджер» и «Логист» назначает администратор.
           </div>
 
           <div className="auth-alt">

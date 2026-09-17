@@ -1,70 +1,101 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { transaction } from "@/lib/db";
+import { hashPassword } from "@/lib/auth/password";
+import { sameOrigin, requestIp } from "@/lib/auth/request";
+import { createSession } from "@/lib/auth/session";
+import { rateLimitStatus, recordFailure } from "@/lib/auth/rate-limit";
 
-// не больше 3 регистраций в час с одного IP
-const MAX_REG = 3;
-const WINDOW_SEC = 3600;
-const LOCK_SEC = 3600;
+const MAX_REGISTRATIONS = 3;
 
-function clientIp(req: NextRequest) {
-  const fwd = req.headers.get("x-forwarded-for");
-  return (fwd ? fwd.split(",")[0] : "").trim() || "unknown";
-}
-
-export async function POST(req: NextRequest) {
-  let body: {
-    email?: string; password?: string;
-    full_name?: string; company?: string; phone?: string;
-  };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "bad request" }, { status: 400 });
+export async function POST(request: NextRequest) {
+  if (!sameOrigin(request)) {
+    return NextResponse.json({ error: "Недопустимый источник запроса." }, { status: 403 });
   }
+  const body = await request.json().catch(() => ({}));
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
-  if (!email || password.length < 8) {
-    return NextResponse.json({ error: "Email и пароль (мин. 8 символов) обязательны" }, { status: 400 });
-  }
+  const fullName = String(body.full_name || "").trim();
+  const company = String(body.company || "").trim();
+  const phone = String(body.phone || "").trim();
 
-  const ip = clientIp(req);
-  const supabase = await createClient();
-
-  // ВРЕМЕННО ОТКЛЮЧЕНО: лимит регистраций не применяется
-  const ENFORCE_REG_LIMIT = false;
-  const { data: hit } = ENFORCE_REG_LIMIT
-    ? await supabase.rpc("rate_fail", {
-        p_key: `reg:${ip}`, p_max: MAX_REG + 1, p_window_sec: WINDOW_SEC, p_lock_sec: LOCK_SEC,
-      })
-    : { data: null };
-  if (ENFORCE_REG_LIMIT && hit?.locked) {
+  if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 8 || !fullName) {
     return NextResponse.json(
-      { error: "Слишком много регистраций с этого адреса. Попробуйте через час." },
-      { status: 429 }
-    );
-  }
-
-  const origin = req.nextUrl.origin;
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback`,
-      data: {
-        full_name: String(body.full_name || "").trim(),
-        company: String(body.company || "").trim(),
-        phone: String(body.phone || "").trim(),
-        role: "client",
-      },
-    },
-  });
-
-  if (error) {
-    const exists = /already registered/i.test(error.message);
-    return NextResponse.json(
-      { error: exists ? "Этот email уже зарегистрирован. Попробуйте войти." : error.message },
+      { error: "Укажите имя, корректный email и пароль не короче 8 символов." },
       { status: 400 }
     );
   }
-  return NextResponse.json({ ok: true });
+
+  const rateKey = `register:${requestIp(request)}`;
+  const rate = await rateLimitStatus(rateKey, MAX_REGISTRATIONS);
+  if (rate.locked) {
+    return NextResponse.json({ error: "Слишком много регистраций. Попробуйте позже." }, { status: 429 });
+  }
+
+  const passwordHash = await hashPassword(password);
+  const userId = randomUUID();
+  const organizationId = randomUUID();
+  const workspaceId = randomUUID();
+  const clientCompanyId = randomUUID();
+  const slugSuffix = userId.slice(0, 8);
+  const confirmedAt = process.env.EMAIL_VERIFICATION_MODE === "smtp" ? null : new Date();
+
+  try {
+    await transaction(async (client) => {
+      await client.query(
+        `insert into app_users (id, email, password_hash, email_confirmed_at)
+         values ($1, $2, $3, $4)`,
+        [userId, email, passwordHash, confirmedAt]
+      );
+      await client.query(
+        `insert into profiles (id, email, full_name, company, phone, role)
+         values ($1, $2, $3, $4, $5, 'client')`,
+        [userId, email, fullName, company, phone]
+      );
+      await client.query(
+        `insert into organizations (id, name, slug, status)
+         values ($1, $2, $3, 'active')`,
+        [organizationId, company || fullName, `self-${slugSuffix}`]
+      );
+      await client.query(
+        `insert into tenant_workspaces (id, organization_id, name, slug, status)
+         values ($1, $2, $3, $4, 'active')`,
+        [workspaceId, organizationId, company || fullName, `workspace-${slugSuffix}`]
+      );
+      await client.query(
+        `insert into client_companies (id, workspace_id, name, status)
+         values ($1, $2, $3, 'active')`,
+        [clientCompanyId, workspaceId, company || fullName]
+      );
+      await client.query(
+        `insert into workspace_memberships
+           (workspace_id, user_id, role, client_company_id, status)
+         values ($1, $2, 'client', $3, 'active')`,
+        [workspaceId, userId, clientCompanyId]
+      );
+      await client.query(
+        `insert into module_entitlements (workspace_id, module_key, enabled)
+         values ($1, 'private_os', true)`,
+        [workspaceId]
+      );
+      await client.query(
+        `insert into tenant_audit_events
+           (workspace_id, actor_user_id, client_company_id, event_type, entity_type, entity_id, metadata)
+         values ($1, $2, $4, 'self_registration', 'user', $2::text, jsonb_build_object('email', $3))`,
+        [workspaceId, userId, email, clientCompanyId]
+      );
+    });
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "23505") {
+      return NextResponse.json({ error: "Этот email уже зарегистрирован." }, { status: 409 });
+    }
+    console.error("registration failed", error);
+    return NextResponse.json({ error: "Не удалось создать аккаунт." }, { status: 500 });
+  }
+
+  await recordFailure(rateKey, MAX_REGISTRATIONS, 3600, 3600);
+  const response = NextResponse.json({ ok: true, confirmed: Boolean(confirmedAt) });
+  if (confirmedAt) await createSession(userId, response);
+  return response;
 }

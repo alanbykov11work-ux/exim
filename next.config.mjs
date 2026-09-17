@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: "standalone",
   env: {
     // метка сборки: статика кэшируется браузером и сбрасывается только при новом деплое
     NEXT_PUBLIC_BUILD_TS: String(Date.now()),

@@ -1,8 +1,7 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-type CookieToSet = { name: string; value: string; options?: CookieOptions };
-
+const SESSION_COOKIE =
+  process.env.NODE_ENV === "production" ? "__Host-exim_session" : "exim_session";
 const PUBLIC_PATHS = [
   "/login",
   "/register",
@@ -10,65 +9,20 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/auth",
+  "/api/health",
 ];
 
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-
-  // Not signed in → only public pages
-  if (!user && !isPublic) {
+  const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+  const hasSessionCookie = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+  if (!hasSessionCookie && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
     return NextResponse.redirect(url);
   }
-
-  // Signed in but email not confirmed → verification screen
-  if (user && !user.email_confirmed_at && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/verify";
-    return NextResponse.redirect(url);
-  }
-
-  // Signed in & confirmed → keep out of auth pages
-  if (
-    user &&
-    user.email_confirmed_at &&
-    (pathname.startsWith("/login") || pathname.startsWith("/register"))
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/app";
-    return NextResponse.redirect(url);
-  }
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createLegacyBrowserBridge } from "@/lib/legacy/browser-bridge";
 
 export type EximUser = {
   id: string;
@@ -71,15 +71,17 @@ export default function EximApp({ user }: { user: EximUser }) {
     }
     window.__EXIM_BOOTED = true;
 
-    const supabase = createClient();
+    const legacyBridge = createLegacyBrowserBridge();
     let cancelled = false;
 
     // --- глобальный мост для SPA ---
     window.__EXIM = { ...user };
-    (window as unknown as { __SUPA: unknown }).__SUPA = supabase;
+    // Legacy scripts still expect this name. It is now a restricted local
+    // compatibility bridge and never exposes PostgreSQL to the browser.
+    (window as unknown as { __SUPA: unknown }).__SUPA = legacyBridge;
     window.__EXIM_LOGOUT = async () => {
       try {
-        await supabase.auth.signOut();
+        await fetch("/auth/logout", { method: "POST" });
       } finally {
         window.location.href = "/login";
       }
@@ -106,33 +108,33 @@ export default function EximApp({ user }: { user: EximUser }) {
         .replace(/^_+|_+$/g, "") || "file";
     window.__EXIM_DOCS = {
       async list(folder: string) {
-        const { data, error } = await supabase.storage
-          .from("documents")
-          .list(`${user.id}/${folder}`, {
-            sortBy: { column: "created_at", order: "desc" },
-          });
-        if (error) throw error;
-        return (data ?? []).filter((f) => f.name !== ".emptyFolderPlaceholder");
+        const response = await fetch(`/api/files?folder=${encodeURIComponent(folder)}`, { cache: "no-store" });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || "Не удалось загрузить документы.");
+        return body.data ?? [];
       },
       async upload(file: File, folder: string) {
-        const path = `${user.id}/${folder}/${Date.now()}_${sanitize(file.name)}`;
-        const { error } = await supabase.storage
-          .from("documents")
-          .upload(path, file, { upsert: false });
-        if (error) throw error;
+        const renamed = new File([file], `${Date.now()}_${sanitize(file.name)}`, { type: file.type });
+        const form = new FormData();
+        form.set("folder", folder);
+        form.set("file", renamed);
+        const response = await fetch("/api/files", { method: "POST", body: form });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || "Не удалось загрузить документ.");
       },
       async signedUrl(path: string) {
-        const { data, error } = await supabase.storage
-          .from("documents")
-          .createSignedUrl(`${user.id}/${path}`, 300);
-        if (error || !data?.signedUrl) throw error ?? new Error("no url");
-        return data.signedUrl;
+        const slash = path.lastIndexOf("/");
+        const folder = slash >= 0 ? path.slice(0, slash) : "documents";
+        const name = slash >= 0 ? path.slice(slash + 1) : path;
+        return `/api/files/resolve?folder=${encodeURIComponent(folder)}&name=${encodeURIComponent(name)}`;
       },
       async remove(path: string) {
-        const { error } = await supabase.storage
-          .from("documents")
-          .remove([`${user.id}/${path}`]);
-        if (error) throw error;
+        const slash = path.lastIndexOf("/");
+        const folder = slash >= 0 ? path.slice(0, slash) : "documents";
+        const name = slash >= 0 ? path.slice(slash + 1) : path;
+        const response = await fetch(`/api/files/resolve?folder=${encodeURIComponent(folder)}&name=${encodeURIComponent(name)}`, { method: "DELETE" });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || "Не удалось удалить документ.");
       },
     };
 
@@ -142,24 +144,25 @@ export default function EximApp({ user }: { user: EximUser }) {
       clearTimeout(timers[key]);
       timers[key] = setTimeout(async () => {
         try {
-          await supabase.from("user_state").upsert({
-            user_id: user.id,
-            key,
-            value: { v: raw },
+          await fetch("/api/state", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key, value: { v: raw } }),
           });
           if (key === SYNC_PREFIX + "profile") {
             // зеркалим основные поля профиля в таблицу profiles
             try {
               const p = JSON.parse(raw);
-              await supabase
-                .from("profiles")
-                .update({
-                  full_name: p.name ?? undefined,
-                  company: p.company ?? undefined,
-                  phone: p.phone ?? undefined,
-                  bin: p.bin ?? undefined,
-                })
-                .eq("id", user.id);
+              await fetch("/api/profile", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  full_name: p.name ?? "",
+                  company: p.company ?? "",
+                  phone: p.phone ?? "",
+                  bin: p.bin ?? "",
+                }),
+              });
             } catch {}
           }
         } catch (e) {
@@ -176,7 +179,12 @@ export default function EximApp({ user }: { user: EximUser }) {
         // стили, состояние и разметка грузятся ПАРАЛЛЕЛЬНО
         const [, stateRes, htmlText] = await Promise.all([
           loadCss("/exim/app.css" + V),
-          supabase.from("user_state").select("key, value"),
+          fetch("/api/state", { cache: "no-store" }).then(async (response) => {
+            const body = await response.json().catch(() => ({}));
+            return response.ok
+              ? { data: body.data ?? [], error: null }
+              : { data: [], error: { message: body.error || "state unavailable" } };
+          }),
           fetch("/exim/body.html" + V).then((r) => r.text()),
         ]);
         const { data: rows, error: qErr } = stateRes;

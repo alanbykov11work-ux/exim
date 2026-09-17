@@ -3,13 +3,11 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import AuthHero from "@/components/AuthHero";
 
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,29 +19,19 @@ function LoginInner() {
   const callbackError = params.get("auth_error");
   const [loading, setLoading] = useState(false);
 
-  // Если в URL пришли токены (#access_token=...) или сессия уже есть —
-  // supabase-js подхватит её, и мы сразу заводим пользователя внутрь.
   useEffect(() => {
     let stop = false;
     async function check() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!stop && session) {
+      const response = await fetch("/auth/session", { cache: "no-store" });
+      const session = await response.json().catch(() => ({}));
+      if (!stop && session.authenticated) {
         router.replace("/app");
         router.refresh();
       }
     }
     check();
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) {
-        router.replace("/app");
-        router.refresh();
-      }
-    });
     return () => {
       stop = true;
-      sub.subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

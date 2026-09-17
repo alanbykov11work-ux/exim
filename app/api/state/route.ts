@@ -10,8 +10,8 @@ export async function GET() {
   const actor = await currentActor();
   if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const result = await query<{ key: string; value: unknown }>(
-    "select key, value from user_state where user_id = $1 order by key",
-    [actor.id]
+    "select key, value from user_state where workspace_id = $1 and user_id = $2 order by key",
+    [actor.workspaceId, actor.id]
   );
   return NextResponse.json({ data: result.rows });
 }
@@ -27,10 +27,11 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "invalid state" }, { status: 400 });
   }
   await query(
-    `insert into user_state (user_id, key, value)
-     values ($1, $2, $3::jsonb)
-     on conflict (user_id, key) do update set value = excluded.value, updated_at = now()`,
-    [actor.id, key, JSON.stringify(value ?? null)]
+    `insert into user_state (workspace_id, user_id, key, value)
+     values ($1, $2, $3, $4::jsonb)
+     on conflict (workspace_id, user_id, key)
+     do update set value = excluded.value, updated_at = now()`,
+    [actor.workspaceId, actor.id, key, JSON.stringify(value ?? null)]
   );
   return NextResponse.json({ ok: true });
 }

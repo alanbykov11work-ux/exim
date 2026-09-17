@@ -52,3 +52,10 @@ test("registration derives identity and tenant scope on the server", async () =>
   assert.match(route, /insert into workspace_memberships/i);
   assert.match(route, /transaction\s*\(/);
 });
+
+test("user state is scoped by workspace as well as user", async () => {
+  const route = await text("app/api/state/route.ts");
+  assert.match(route, /where workspace_id = \$1 and user_id = \$2/i);
+  assert.match(route, /insert into user_state \(workspace_id, user_id, key, value\)/i);
+  assert.match(route, /on conflict \(workspace_id, user_id, key\)/i);
+});

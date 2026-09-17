@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { currentActor } from "@/lib/auth/session";
+import { authorizeActor } from "@/lib/auth/authorize";
 import { sameOrigin } from "@/lib/auth/request";
 import { query } from "@/lib/db";
 import { deleteFile, FOLDER_RE, MAX_FILE_BYTES, storeFile } from "@/lib/files/storage";
@@ -7,8 +7,9 @@ import { deleteFile, FOLDER_RE, MAX_FILE_BYTES, storeFile } from "@/lib/files/st
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const actor = await currentActor();
-  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const access = await authorizeActor({ moduleKey: "private_os" });
+  if (!access.ok) return access.response;
+  const { actor } = access;
   const folder = String(request.nextUrl.searchParams.get("folder") || "");
   if (!FOLDER_RE.test(folder)) return NextResponse.json({ error: "invalid folder" }, { status: 400 });
   const result = await query<{ id: string; name: string; created_at: string }>(
@@ -24,8 +25,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const actor = await currentActor();
-  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const access = await authorizeActor({ moduleKey: "private_os" });
+  if (!access.ok) return access.response;
+  const { actor } = access;
   const form = await request.formData();
   const file = form.get("file");
   const folder = String(form.get("folder") || "");

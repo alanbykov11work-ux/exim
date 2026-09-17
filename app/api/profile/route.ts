@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { currentActor } from "@/lib/auth/session";
+import { authorizeActor } from "@/lib/auth/authorize";
 import { sameOrigin } from "@/lib/auth/request";
 import { query } from "@/lib/db";
 
@@ -9,8 +9,9 @@ function clean(value: unknown, max: number) {
 
 export async function PATCH(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const actor = await currentActor();
-  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const access = await authorizeActor({ moduleKey: "private_os" });
+  if (!access.ok) return access.response;
+  const { actor } = access;
   const body = await request.json().catch(() => ({}));
   await query(
     `update profiles

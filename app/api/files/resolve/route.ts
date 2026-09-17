@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { currentActor } from "@/lib/auth/session";
+import { authorizeActor } from "@/lib/auth/authorize";
 import { sameOrigin } from "@/lib/auth/request";
 import { query } from "@/lib/db";
 import { deleteFile, FOLDER_RE, loadFile, safeDownloadName } from "@/lib/files/storage";
@@ -22,8 +22,9 @@ async function findDocument(request: NextRequest, userId: string, workspaceId: s
 }
 
 export async function GET(request: NextRequest) {
-  const actor = await currentActor();
-  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const access = await authorizeActor({ moduleKey: "private_os" });
+  if (!access.ok) return access.response;
+  const { actor } = access;
   const document = await findDocument(request, actor.id, actor.workspaceId);
   if (!document) return NextResponse.json({ error: "not found" }, { status: 404 });
   const bytes = await loadFile(document.storage_key);
@@ -39,8 +40,9 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const actor = await currentActor();
-  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const access = await authorizeActor({ moduleKey: "private_os" });
+  if (!access.ok) return access.response;
+  const { actor } = access;
   const document = await findDocument(request, actor.id, actor.workspaceId);
   if (!document) return NextResponse.json({ error: "not found" }, { status: 404 });
   await query("delete from documents where id = $1 and workspace_id = $2 and uploaded_by = $3", [document.id, actor.workspaceId, actor.id]);

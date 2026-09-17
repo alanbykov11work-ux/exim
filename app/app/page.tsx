@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import EximApp from "@/components/EximApp";
+import { hasModuleEntitlement } from "@/lib/auth/authorize";
 import { currentActor, currentSessionUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,10 @@ export default async function AppPage() {
   if (!user) redirect("/login");
   if (!user.emailConfirmedAt) redirect("/verify");
   const actor = await currentActor();
-  if (!actor) redirect("/access-required?code=no-membership");
+  if (!actor) redirect("/select-context");
+  if (!(await hasModuleEntitlement(actor, "private_os"))) {
+    redirect("/access-required?code=module-disabled");
+  }
 
   return (
     <EximApp

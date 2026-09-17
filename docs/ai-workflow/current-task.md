@@ -3,33 +3,34 @@
 | Поле | Значение |
 |---|---|
 | Application repository | `https://github.com/alanbykov11work-ux/exim.git` |
-| Статус | `submitted` |
-| Current application task | `TASK-2026-002` — self-hosted PostgreSQL preview |
-| Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` — read-only product scope |
-| Application baseline | `ea049dca75e3a2e0f1e936156ab8c7fc80091e7a` |
-| Implementation branch | `task/TASK-2026-002-self-hosted-postgres` |
-| Target environment | отдельный managed preview `superapp.185-129-49-242.sslip.io` |
+| Статус | `in_progress` |
+| Current application task | `TASK-2026-003` — release foundation и явный access context |
+| Product OS ref | `product-os-task-2026-003-r2` / `f783667681e81ba6368b09558f89bacdf7587def` |
+| Application stacked baseline | `b3dd29751fbb9a6334f255e58576764dd44a29cd` |
+| Implementation branch | `task/TASK-2026-003-release-foundation-identity` |
+| Target environment | managed preview `superapp.185-129-49-242.sslip.io` |
 | Data class | только синтетические test data; реальные клиентские данные запрещены |
 | Production switch | `FORBIDDEN` до отдельной приёмки владельца |
-| Следующее действие | независимый review PR [#6](https://github.com/alanbykov11work-ux/exim/pull/6) и exact deployed app commit `3a94d0009c5996febf400aab9af7281eee9af95c`; human acceptance остаётся отдельным шагом |
+| Следующее действие | migration 0002, explicit membership context, module guards, role/tenant matrix |
 
 ## Owner directive
 
-17 сентября 2026 владелец прямо поручил скопировать текущую Super App на существующий managed server, развернуть её отдельным сервисом и заменить Supabase на переносимую SQL-базу на сервере. Это более новое указание отменяет прежний технический blocker «нужен test Supabase», но не разрешает смешивать базы Hub/Super App, использовать реальные данные или переключать публичный production origin.
+17 сентября 2026 владелец утвердил полный roadmap и поручил начать разработку. Синтетические цены, тарифы и экранное наполнение разрешены только как явно помеченные demo placeholders. Финальный дизайн выполняется после функционального контура.
+
+## Stacked dependency
+
+TASK-2026-002 и PR #6 остаются submitted и не объявляются независимо принятыми. Новая ветка создана от exact head `b3dd297`; она не меняет PR #6 и не может быть слита в `main`, пока base dependency не включён или безопасно не rebased.
 
 ## Граница выполнения
 
-- отдельный Compose project, PostgreSQL, документы, секреты и backups;
-- Next.js остаётся приложением и server-side API;
-- Hub и Super App не объединяются; первый контракт остаётся link-first;
-- Foundation Wave 1 изменения из `ea049dc` сохранены как база этой ветки;
-- старые `supabase/**` остаются историческими, runtime Supabase удаляется;
-- первый deploy может быть только честным preview: неподключённые write-модули явно блокируются.
+- отдельный PostgreSQL/документы/backups сохраняются;
+- активный workspace/role context определяется только серверной membership;
+- ни один UI switch не создаёт и не повышает права;
+- Hub и Super App не объединяются;
+- production, реальные данные, реальные цены и скрытая коммерческая логика запрещены.
 
 ## История
 
 | Дата | Было | Стало | Actor | Причина |
 |---|---|---|---|---|
-| 2026-09-17 | `TASK-2026-002 submitted attempt 01` | `changes_requested → in_progress → submitted attempt 02` | Пользовательское runtime evidence + Codex task curator | Публичная регистрация показала reverse-proxy Origin `403`; policy исправлена без доверия forwarded headers, добавлены tests, exact commit развёрнут и повторно проверен |
-| 2026-09-17 | `TASK-2026-002 in_progress` | `TASK-2026-002 submitted` | Codex task curator | PR #6, public preview, full submission/evidence, backup/export/restore и regression evidence опубликованы; независимый review ещё не выполнен |
-| 2026-09-17 | `TASK-2026-001 in_progress` | `TASK-2026-002 in_progress` | Codex task curator по прямому поручению владельца | Владелец выбрал самостоятельный managed server и PostgreSQL вместо ожидания Supabase/integrator |
+| 2026-09-17 | `TASK-2026-002 submitted` | `TASK-2026-002 superseded as delivery package; TASK-2026-003 in_progress` | Product owner authorization + Codex task curator | Утверждён полный roadmap; server foundation перенесён как точная stacked dependency без заявления acceptance |

@@ -59,3 +59,16 @@ test("user state is scoped by workspace as well as user", async () => {
   assert.match(route, /insert into user_state \(workspace_id, user_id, key, value\)/i);
   assert.match(route, /on conflict \(workspace_id, user_id, key\)/i);
 });
+
+test("all private runtime APIs use the selected context and module guard", async () => {
+  for (const routePath of [
+    "app/api/state/route.ts",
+    "app/api/profile/route.ts",
+    "app/api/files/route.ts",
+    "app/api/files/resolve/route.ts",
+    "app/api/workflow/snapshot/route.ts",
+  ]) {
+    const route = await text(routePath);
+    assert.match(route, /authorizeActor\(\{ moduleKey: "private_os" \}\)/, routePath);
+  }
+});

@@ -5,13 +5,14 @@ export default function AccessRequiredPage() {
     <main className="app-boot">
       <div className="auth-card" style={{ maxWidth: 520 }}>
         <span className="eyebrow">Доступ к рабочему пространству</span>
-        <h2>Права ещё не настроены</h2>
+        <h2>Доступ сейчас неактивен</h2>
         <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-          Аккаунт подтверждён, но ему не назначена компания и рабочая роль.
-          Обратитесь к администратору EXIM. Данные других компаний не открыты.
+          Аккаунт подтверждён, но выбранная роль или модуль недоступны.
+          Выберите другой назначенный рабочий контур либо обратитесь к администратору компании.
+          Данные других компаний не открыты.
         </p>
-        <Link className="btn btn-primary btn-lg" href="/login">
-          Вернуться ко входу
+        <Link className="btn btn-primary btn-lg" href="/select-context">
+          Выбрать компанию и роль
         </Link>
       </div>
     </main>

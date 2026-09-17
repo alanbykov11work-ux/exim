@@ -37,6 +37,12 @@ The migration runner records every filename and SHA-256 in `schema_migrations`. 
 
 Before sending traffic, verify the container health, `/api/health`, a real login, role permissions and cross-workspace/client-company denial. The committed Compose file does not modify Caddy or any other EXIM service.
 
+### Access-context migration 0002
+
+`0002_explicit_access_context.sql` adds an exact `active_membership_id` to each session. Its composite foreign key guarantees that a session cannot point at another user's membership. Existing sessions keep a null context and are sent to `/select-context`; a new login selects automatically only when exactly one active membership exists.
+
+Routine application rollback does not drop this column or constraint: the previous image can ignore additive schema. If the migration itself must be reversed, stop `web`, create and verify a fresh dump, restore the pre-migration backup into a separate database first, and only then make a human-approved restore decision. Never edit `0002` after it has been recorded in `schema_migrations`.
+
 ## Backups and export
 
 `db-backup` creates a PostgreSQL custom-format dump on startup and then every 24 hours by default. Dumps and SHA-256 files live in the dedicated `postgres_backups` volume. The default retention is 14 days. Create an on-demand backup with:

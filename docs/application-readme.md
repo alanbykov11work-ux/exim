@@ -1,5 +1,9 @@
 # EXIM Super App — приложение и backend
 
+## Текущая release-волна
+
+TASK-2026-003 вводит явный server-authorized access context. Сессия хранит одну точную membership; пользователь с несколькими активными memberships выбирает workspace и роль на `/select-context`. Сервер не получает повышенные права из визуального переключателя. Приватные API дополнительно требуют entitlement `private_os` и возвращают безопасные для роли payloads.
+
 ## Стек
 
 - Next.js 15 / React 18 / TypeScript;
@@ -15,7 +19,7 @@
 
 1. Поднять PostgreSQL 16.
 2. Создать owner и ограниченного пользователя приложения.
-3. Выполнить `db/migrations/0001_self_hosted_core.sql` owner-подключением.
+3. Выполнить все `db/migrations/*.sql` по порядку через `scripts/server/migrate.sh` owner-подключением.
 4. Скопировать `.env.example` в локальный `.env.local` и заменить значения.
 5. Запустить:
 

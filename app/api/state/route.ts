@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { currentActor } from "@/lib/auth/session";
+import { authorizeActor } from "@/lib/auth/authorize";
 import { sameOrigin } from "@/lib/auth/request";
 import { query } from "@/lib/db";
 
@@ -7,8 +7,9 @@ const KEY_RE = /^exim-[a-z0-9:_-]{1,100}$/i;
 const MAX_VALUE_BYTES = 512 * 1024;
 
 export async function GET() {
-  const actor = await currentActor();
-  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const access = await authorizeActor({ moduleKey: "private_os" });
+  if (!access.ok) return access.response;
+  const { actor } = access;
   const result = await query<{ key: string; value: unknown }>(
     "select key, value from user_state where workspace_id = $1 and user_id = $2 order by key",
     [actor.workspaceId, actor.id]
@@ -18,8 +19,9 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const actor = await currentActor();
-  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const access = await authorizeActor({ moduleKey: "private_os" });
+  if (!access.ok) return access.response;
+  const { actor } = access;
   const body = await request.json().catch(() => ({}));
   const key = String(body.key || "");
   const value = body.value;

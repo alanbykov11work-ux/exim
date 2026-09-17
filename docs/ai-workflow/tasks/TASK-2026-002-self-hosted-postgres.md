@@ -1,6 +1,6 @@
 # TASK-2026-002 — Self-hosted PostgreSQL preview
 
-Статус: `submitted`
+Статус: `superseded` как delivery package; PR #6 остаётся открытой base dependency и не считается accepted
 Baseline: `ea049dca75e3a2e0f1e936156ab8c7fc80091e7a`
 Branch: `task/TASK-2026-002-self-hosted-postgres`
 Environment: managed preview, synthetic data only
@@ -35,3 +35,7 @@ Environment: managed preview, synthetic data only
 - Exchange/ATI.SU;
 - перенос внешних данных без предоставленного владельцем dump/export;
 - SMTP до выбора провайдера.
+
+## Решение 2026-09-17
+
+Владелец утвердил полный roadmap и разрешил следующую волну. Результат TASK-2026-002 сохранён без переписывания и используется exact stacked baseline `b3dd297`. Статус `superseded` означает замену delivery package, а не независимую техническую приёмку PR #6.

@@ -9,13 +9,17 @@ function identity(label) {
     label,
     email: `synthetic-${label}-${suffix}@example.invalid`,
     password: randomBytes(18).toString("base64url"),
+    ip: `198.18.${randomBytes(1)[0]}.${1 + (randomBytes(1)[0] % 253)}`,
     cookie: "",
   };
 }
 
 async function request(identity, path, options = {}) {
   const headers = new Headers(options.headers || {});
-  if (identity?.cookie) headers.set("cookie", identity.cookie);
+  if (identity) {
+    headers.set("x-forwarded-for", identity.ip);
+    if (identity.cookie) headers.set("cookie", identity.cookie);
+  }
   const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers,

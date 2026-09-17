@@ -81,7 +81,8 @@ export async function POST(request: NextRequest) {
       await client.query(
         `insert into tenant_audit_events
            (workspace_id, actor_user_id, client_company_id, event_type, entity_type, entity_id, metadata)
-         values ($1, $2, $4, 'self_registration', 'user', $2::text, jsonb_build_object('email', $3))`,
+         values ($1::uuid, $2::uuid, $4::uuid, 'self_registration', 'user',
+                 $2::uuid::text, jsonb_build_object('email', $3::text))`,
         [workspaceId, userId, email, clientCompanyId]
       );
     });

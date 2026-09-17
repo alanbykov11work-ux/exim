@@ -25,8 +25,10 @@ for file in "$MIGRATIONS_DIR"/*.sql; do
   version="$(basename "$file")"
   checksum="$(sha256sum "$file" | awk '{print $1}')"
   recorded="$(psql "$DATABASE_URL" --set=ON_ERROR_STOP=1 --tuples-only --no-align \
-    --set=version="$version" \
-    -c "select checksum from public.schema_migrations where version = :'version'")"
+    --set=version="$version" <<'SQL'
+select checksum from public.schema_migrations where version = :'version';
+SQL
+)"
 
   if [ -n "$recorded" ]; then
     if [ "$recorded" != "$checksum" ]; then
@@ -40,8 +42,10 @@ for file in "$MIGRATIONS_DIR"/*.sql; do
   echo "Applying: $version"
   psql "$DATABASE_URL" --set=ON_ERROR_STOP=1 --single-transaction --file="$file"
   psql "$DATABASE_URL" --set=ON_ERROR_STOP=1 \
-    --set=version="$version" --set=checksum="$checksum" \
-    -c "insert into public.schema_migrations(version, checksum) values (:'version', :'checksum')"
+    --set=version="$version" --set=checksum="$checksum" <<'SQL'
+insert into public.schema_migrations(version, checksum)
+values (:'version', :'checksum');
+SQL
 done
 
 if [ "$found" -ne 1 ]; then

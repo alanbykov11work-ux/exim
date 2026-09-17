@@ -30,6 +30,8 @@ Thumbs.db
 .idea/
 .vscode/
 .vercel/
+.playwright-cli/
+output/playwright/
 
 # --- из импортированного приложения ---
 .env.local

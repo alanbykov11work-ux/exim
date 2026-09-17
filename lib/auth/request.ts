@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { isAllowedRequestOrigin } from "@/lib/auth/origin-policy.mjs";
 
 export function requestIp(request: NextRequest) {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -7,5 +8,9 @@ export function requestIp(request: NextRequest) {
 
 export function sameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
-  return !origin || origin === request.nextUrl.origin;
+  return isAllowedRequestOrigin(
+    origin,
+    request.nextUrl.origin,
+    process.env.APP_BASE_URL
+  );
 }

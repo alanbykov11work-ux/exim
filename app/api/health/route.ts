@@ -1,2 +1,1 @@
 export { GET } from "./ready/route";
-

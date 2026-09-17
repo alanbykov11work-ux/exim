@@ -22,4 +22,3 @@ export async function verifyPassword(password: string, encoded: string) {
     return false;
   }
 }
-

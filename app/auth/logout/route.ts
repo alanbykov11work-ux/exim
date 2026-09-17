@@ -10,4 +10,3 @@ export async function POST(request: NextRequest) {
   await destroySession(request.cookies.get(SESSION_COOKIE)?.value, response);
   return response;
 }
-

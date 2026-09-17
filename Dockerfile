@@ -30,4 +30,3 @@ RUN mkdir -p /var/lib/exim-superapp/documents && chown -R node:node /var/lib/exi
 USER node
 EXPOSE 3000
 CMD ["npm", "run", "start"]
-

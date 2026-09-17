@@ -1,8 +1,8 @@
 # TASK-2026-002 — Self-hosted PostgreSQL preview
 
-Статус: `in_progress`  
-Baseline: `ea049dca75e3a2e0f1e936156ab8c7fc80091e7a`  
-Branch: `task/TASK-2026-002-self-hosted-postgres`  
+Статус: `in_progress`
+Baseline: `ea049dca75e3a2e0f1e936156ab8c7fc80091e7a`
+Branch: `task/TASK-2026-002-self-hosted-postgres`
 Environment: managed preview, synthetic data only
 
 ## Цель
@@ -35,4 +35,3 @@ Environment: managed preview, synthetic data only
 - Exchange/ATI.SU;
 - перенос внешних данных без предоставленного владельцем dump/export;
 - SMTP до выбора провайдера.
-

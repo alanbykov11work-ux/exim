@@ -23,4 +23,3 @@ source_file="$resolved_backup_dir/$BACKUP_FILE"
 umask 077
 cp "$source_file" "$resolved_export_dir/$BACKUP_FILE"
 cp "$source_file.sha256" "$resolved_export_dir/$BACKUP_FILE.sha256"
-

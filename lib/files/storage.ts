@@ -38,4 +38,3 @@ export async function deleteFile(storageKey: string) {
 export function safeDownloadName(name: string) {
   return name.replace(/[\r\n"\\/]/g, "_").slice(0, 180) || "document";
 }
-

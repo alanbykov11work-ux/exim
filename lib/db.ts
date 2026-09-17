@@ -44,4 +44,3 @@ export async function transaction<T>(fn: (client: PoolClient) => Promise<T>) {
     client.release();
   }
 }
-

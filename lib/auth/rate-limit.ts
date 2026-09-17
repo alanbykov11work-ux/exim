@@ -60,4 +60,3 @@ export async function recordFailure(
 export async function clearFailures(key: string) {
   await query("delete from auth_rate_limits where key = $1", [key]);
 }
-

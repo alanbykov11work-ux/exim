@@ -43,4 +43,3 @@ pg_restore \
   --no-privileges \
   --exit-on-error \
   "$resolved_file"
-

@@ -17,4 +17,3 @@ create role exim_superapp_app
   nocreaterole
   noinherit;
 SQL
-

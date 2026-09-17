@@ -63,4 +63,3 @@ export async function GET() {
     capabilities: { workflowRead: true, workflowWrite: false },
   });
 }
-

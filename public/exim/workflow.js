@@ -54,9 +54,15 @@
   async function _loadAll() {
     const s = S(); if (!s) return;
     const [{ data: orders }, { data: transports }] = await Promise.all([
-      s.from('orders').select('*').order('created_at', { ascending: false }),
+      // цена клиента, текст предложения и внутренний комментарий расчёта
+      // не выбираются из таблицы напрямую: их отдаёт только orders_scoped()
+      s.rpc('orders_scoped', { p_workspace_id: U().workspaceId }),
       s.from('transports').select('*').order('created_at', { ascending: false })
     ]);
+    if (isMgr()) {
+      const { data: companies } = await s.from('client_companies').select('id, name').order('name');
+      CACHE.companies = companies || [];
+    }
     let allOrders = orders || [], allTrans = transports || [];
     // Серверная RLS уже вернула только разрешённый scope. Локальная фильтрация
     // остаётся лишь представлением и не используется как защита.
@@ -307,15 +313,18 @@
         <div class="form-group"><label class="form-label">Вес / объём</label><input class="form-input" id="wf-w" placeholder="20 т / 86 м³"></div>
       </div>
       <div class="form-group"><label class="form-label">Груз</label><input class="form-input" id="wf-c" placeholder="Оборудование"></div>
-      ${isMgr() ? `<div class="form-group"><label class="form-label">Клиент</label><select class="form-input" id="wf-client">${CACHE.profiles.filter(p=>p.role==='client').map(p=>`<option value="${p.id}">${esc(p.company || p.full_name || p.email)}</option>`).join('') || `<option value="${U().id}">Я (${esc(U().email)})</option>`}</select></div>` : ''}
+      ${isMgr() ? `<div class="form-group"><label class="form-label">Клиентская компания</label><select class="form-input" id="wf-company">${(CACHE.companies || []).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>` : ''}
       <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.createOrder()">Создать заявку</button>`);
   }
   async function createOrder() {
     const v = id => (document.getElementById(id) || {}).value || '';
     if (!v('wf-o') || !v('wf-d')) { showToast('warning', 'Заполните маршрут', 'Укажите откуда и куда'); return; }
-    const clientId = isMgr() && document.getElementById('wf-client') ? v('wf-client') : U().id;
-    const row = { ref: refOrd(), client_id: clientId, created_by: U().id, origin: v('wf-o'), destination: v('wf-d'), transport: v('wf-t'), cargo: v('wf-c'), weight: v('wf-w') };
-    const { data, error } = await S().from('orders').insert(row).select().single();
+    // scope заявки: клиент — только своя компания из membership,
+    // менеджер — выбранная компания своего workspace; сервер проверяет оба случая
+    const companyId = isMgr() ? v('wf-company') : U().clientCompanyId;
+    if (!companyId) { showToast('warning', 'Нет клиентской компании', 'Заявка создаётся только в рамках клиентской компании'); return; }
+    const row = { ref: refOrd(), workspace_id: U().workspaceId, client_company_id: companyId, client_id: U().id, created_by: U().id, origin: v('wf-o'), destination: v('wf-d'), transport: v('wf-t'), cargo: v('wf-c'), weight: v('wf-w') };
+    const { data, error } = await S().from('orders').insert(row).select('id, ref').single();
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     hist(data.id, 'created', row);
     CACHE.loadedAt = 0;
@@ -405,8 +414,9 @@
       });
       ref = data;
     } catch (e) {}
-    const row = { ref: ref || refTr(), order_id: o.id, client_id: o.client_id, manager_id: U().id, logist_id: o.logist_id, origin: o.origin, destination: o.destination };
-    const { data, error } = await S().from('transports').insert(row).select().single();
+    // scope перевозки сервер берёт из заявки и не доверяет значениям клиента
+    const row = { ref: ref || refTr(), order_id: o.id, workspace_id: o.workspace_id, client_company_id: o.client_company_id, client_id: o.client_id, manager_id: U().id, logist_id: o.logist_id, origin: o.origin, destination: o.destination };
+    const { data, error } = await S().from('transports').insert(row).select('id, ref').single();
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     await S().from('orders').update({ status: 'converted' }).eq('id', id);
     hist(id, 'converted', { transport: data.ref });
@@ -450,7 +460,10 @@
     CACHE.openTrans = id;
     const s = S();
     const [{ data: trips }, { data: updates }, evRes] = await Promise.all([
-      s.from('trips').select('*').eq('transport_id', id).order('created_at'),
+      // клиенту — только безопасный слой рейсов, без машины и водителя
+      (isMgr() || isLog())
+        ? s.from('trips').select('*').eq('transport_id', id).order('created_at')
+        : s.rpc('client_trips', { p_transport_id: id }),
       s.from('transport_updates').select('*').eq('transport_id', id).order('created_at', { ascending: false }),
       (isMgr() || isLog()) ? s.from('trip_events').select('*').eq('transport_id', id).order('created_at', { ascending: false }) : Promise.resolve({ data: [] })
     ]);
@@ -477,9 +490,9 @@
 
     // Рейсы
     body += `<div style="font-weight:600;margin:8px 0 8px;">Рейсы / машины ${staff ? `<a href="#" style="font-size:13px;font-weight:500;color:var(--accent);" onclick="WF.addTrip('${t.id}');return false;">+ добавить</a>` : ''}</div>`;
-    body += (trips || []).length ? (trips || []).map(tr =>
+    body += (trips || []).length ? (trips || []).map((tr, idx) =>
       `<div style="display:flex;justify-content:space-between;padding:8px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:14px;">
-        <span>${esc(tr.name)}${tr.driver ? ' · ' + esc(tr.driver) : ''}</span>
+        <span>${esc(tr.name || 'Рейс ' + (idx + 1))}${tr.driver ? ' · ' + esc(tr.driver) : ''}</span>
         ${staff ? `<a href="#" style="color:var(--accent);font-size:13px;" onclick="WF.addEvent('${t.id}','${tr.id}','${esc(tr.name)}');return false;">+ событие</a>` : ''}
       </div>`).join('') : `<div style="color:var(--muted);font-size:13.5px;margin-bottom:6px;">Рейсы ещё не добавлены</div>`;
 

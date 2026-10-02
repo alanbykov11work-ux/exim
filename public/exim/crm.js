@@ -171,19 +171,36 @@
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     C.loadedAt = 0; showToast('success', 'Заметка сохранена', '');
   }
+  // Заявка из лида создаётся только в рамках клиентской компании workspace:
+  // менеджер выбирает её явно, сервер проверяет принадлежность.
   async function convert(id) {
     const l = C.list.find(x => x.id === id); if (!l) return;
-    // создаём заявку на расчёт из лида; клиентом выступает менеджер (пока клиент не зарегистрирован)
+    const { data: companies, error } = await S().from('client_companies').select('id, name').order('name');
+    if (error) { showToast('danger', 'Ошибка', error.message); return; }
+    if (!(companies || []).length) {
+      showToast('warning', 'Нет клиентской компании', 'Сначала заведите клиентскую компанию в workspace');
+      return;
+    }
+    openModal('Заявка из лида ' + esc(l.ref), `
+      <div class="form-group"><label class="form-label" for="ld-company">Клиентская компания</label>
+        <select class="form-input" id="ld-company">${companies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="CRM.convertTo('${l.id}')">Создать заявку на расчёт</button>`);
+  }
+  async function convertTo(id) {
+    const l = C.list.find(x => x.id === id); if (!l) return;
+    const companyId = (document.getElementById('ld-company') || {}).value;
+    if (!companyId) return;
     const [origin, destination] = (l.title || '').includes('→')
       ? l.title.split('→').map(s => s.trim().split(',')[0])
       : ['', ''];
     const row = {
       ref: 'ZK-' + Math.floor(1000 + Math.random() * 9000),
+      workspace_id: U().workspaceId, client_company_id: companyId,
       client_id: U().id, created_by: U().id,
       origin: origin || 'Уточнить', destination: destination || 'Уточнить',
       cargo: l.title || '', comment: 'Из лида ' + l.ref + ' · ' + (l.company || l.name || '')
     };
-    const { data, error } = await S().from('orders').insert(row).select().single();
+    const { data, error } = await S().from('orders').insert(row).select('id, ref').single();
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     await S().from('leads').update({ order_id: data.id, stage: 'won', stage_changed_at: new Date().toISOString() }).eq('id', id);
     hist(id, 'converted', { order: data.ref });
@@ -192,7 +209,7 @@
     render();
   }
 
-  window.CRM = { render, view: v => { C.view = v; render(); }, newLead, create, open: openLead, setStage, saveNote, convert };
+  window.CRM = { render, view: v => { C.view = v; render(); }, newLead, create, open: openLead, setStage, saveNote, convert, convertTo };
   const _nav = window.navigate;
   window.navigate = function (page, event, id) {
     _nav(page, event, id);

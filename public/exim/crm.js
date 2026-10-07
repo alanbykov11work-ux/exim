@@ -121,7 +121,7 @@
       ref: refLead(), company: v('ld-company'), name: v('ld-name'), phone: v('ld-phone'), email: v('ld-email'),
       title: v('ld-title'), source: v('ld-source') || 'manual',
       amount: v('ld-amount') ? Number(v('ld-amount')) : null,
-      owner_id: U().id, created_by: U().id
+      workspace_id: U().workspaceId, owner_id: U().id, created_by: U().id
     };
     const { data, error } = await S().from('leads').insert(row).select().single();
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
@@ -182,13 +182,13 @@
       return;
     }
     openModal('Заявка из лида ' + esc(l.ref), `
-      <div class="form-group"><label class="form-label" for="ld-company">Клиентская компания</label>
-        <select class="form-input" id="ld-company">${companies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label" for="ld-client-company">Клиентская компания</label>
+        <select class="form-input" id="ld-client-company">${companies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
       <button class="btn btn-primary btn-lg" style="width:100%;" onclick="CRM.convertTo('${l.id}')">Создать заявку на расчёт</button>`);
   }
   async function convertTo(id) {
     const l = C.list.find(x => x.id === id); if (!l) return;
-    const companyId = (document.getElementById('ld-company') || {}).value;
+    const companyId = (document.getElementById('ld-client-company') || {}).value;
     if (!companyId) return;
     const [origin, destination] = (l.title || '').includes('→')
       ? l.title.split('→').map(s => s.trim().split(',')[0])

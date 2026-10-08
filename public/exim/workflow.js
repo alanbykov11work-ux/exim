@@ -228,10 +228,19 @@
               <span class="mono" id="wf-cost-total" style="font-size:18px;font-weight:700;">₸ 0</span>
             </div>
           </div>
+          <div class="form-group"><label class="form-label">Ставки перевозчиков (минимум 2)</label>
+            <div id="wf-rates" data-order="${o.id}" data-edit="1">Загрузка…</div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 80px;gap:8px;margin-top:8px;">
+              <input class="form-input" id="wf-rate-carrier" placeholder="Перевозчик">
+              <input class="form-input" id="wf-rate-amount" type="number" placeholder="Ставка">
+              <input class="form-input" id="wf-rate-cur" value="KZT" maxlength="3">
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="WF.addRate('${o.id}')">+ добавить ставку</button>
+          </div>
           <div class="form-group"><label class="form-label">Комментарий менеджеру</label>
             <textarea class="form-input" id="wf-comment" rows="2">${esc(o.calc_comment)}</textarea></div>
           <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.submitCalc('${o.id}')">Отправить расчёт менеджеру</button>`;
-        setTimeout(calcSum, 50);
+        setTimeout(() => { calcSum(); loadRates(o.id); }, 50);
       } else {
         body += calcBlock(o, f) + `<div style="color:var(--muted);font-size:13.5px;margin-top:10px;">Расчёт отправлен ${dt(o.calc_submitted_at)}.</div>`;
       }
@@ -252,7 +261,10 @@
       body += `<div style="color:var(--muted);font-size:14px;">Логист: <b>${profName(o.logist_id)}</b> · дедлайн ${dt(o.calc_deadline)}. Ожидаем расчёт.</div>`;
     } else if (o.status === 'calculated') {
       const cost = Number(f.cost || 0);
+      setTimeout(() => loadRates(o.id), 50);
       body += calcBlock(o, f) + `
+        <div style="font-weight:600;margin:14px 0 6px;">Ставки перевозчиков</div>
+        <div id="wf-rates" data-order="${o.id}">Загрузка…</div>
         <div style="font-weight:600;margin:14px 0 10px;">Предложение клиенту</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div class="form-group"><label class="form-label">Маржа, ₸</label>
@@ -369,6 +381,7 @@
     const expenses = gatherExpenses();
     const cost = expenses.reduce((s, e) => s + e.amount, 0);
     if (!cost) { showToast('warning', 'Заполните статьи расчёта', 'Добавьте хотя бы одну статью с суммой'); return; }
+    if ((RATES[id] || []).filter(r => r.status === 'active').length < 2) { showToast('warning', 'Нужно минимум 2 ставки', 'Добавьте ставки перевозчиков'); return; }
     const updO = { calc_route: v('wf-route'), calc_days: v('wf-days'), calc_comment: v('wf-comment'), calc_submitted_at: new Date().toISOString(), status: 'calculated' };
     const e1 = (await S().from('orders').update(updO).eq('id', id)).error;
     const e2 = (await S().from('order_finance').upsert({ order_id: id, cost, expenses })).error;
@@ -686,6 +699,39 @@
   }
 
   // ---------- интеграция с приложением ----------
+  const RATES = {};
+  async function loadRates(orderId) {
+    const box = document.getElementById('wf-rates');
+    if (!box || box.dataset.order !== orderId) return;
+    const { data, error } = await S().from('rate_quotes')
+      .select('id, carrier, amount, currency, status, created_by, created_at').eq('order_id', orderId).order('created_at');
+    if (error) {
+      box.innerHTML = window.EXIM_STATE ? EXIM_STATE.html(EXIM_STATE.classify(error), null, () => loadRates(orderId)) : esc(error.message);
+      return;
+    }
+    RATES[orderId] = data || [];
+    const edit = box.dataset.edit === '1';
+    box.innerHTML = RATES[orderId].length ? RATES[orderId].map(r => `
+      <div style="display:flex;gap:8px;align-items:center;padding:6px 0;${r.status === 'withdrawn' ? 'opacity:.5;text-decoration:line-through;' : ''}">
+        <span style="flex:1;">${esc(r.carrier)}</span>
+        <span class="mono">${Number(r.amount).toLocaleString('ru-RU')} ${esc(r.currency)}</span>
+        ${edit && r.status === 'active' ? `<button type="button" class="btn btn-ghost btn-sm" onclick="WF.withdrawRate('${r.id}','${orderId}')">Отозвать</button>` : ''}
+      </div>`).join('') : '<div style="color:var(--muted);font-size:13.5px;">Ставок пока нет</div>';
+  }
+  async function addRate(orderId) {
+    const v = x => ((document.getElementById(x) || {}).value || '').trim();
+    const carrier = v('wf-rate-carrier'), amount = Number(v('wf-rate-amount')), currency = v('wf-rate-cur').toUpperCase() || 'KZT';
+    if (!carrier || !(amount > 0)) { showToast('warning', 'Укажите перевозчика и ставку', ''); return; }
+    const { error } = await S().from('rate_quotes').insert({ order_id: orderId, carrier, amount, currency });
+    if (error) { showToast('danger', 'Ставка не добавлена', error.message); return; }
+    ['wf-rate-carrier', 'wf-rate-amount'].forEach(x => { const el = document.getElementById(x); if (el) el.value = ''; });
+    loadRates(orderId);
+  }
+  async function withdrawRate(rateId, orderId) {
+    const { error } = await S().from('rate_quotes').update({ status: 'withdrawn' }).eq('id', rateId);
+    if (error) { showToast('danger', 'Не удалось отозвать', error.message); return; }
+    loadRates(orderId);
+  }
   window.WF = {
     tab: t => { CACHE.tab = t; renderWF(); },
     view: v => { CACHE.view = v; renderWF(); },
@@ -694,7 +740,7 @@
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,
-    open: openOrder, newOrder, createOrder, assign, submitCalc, sendOffer, decide,
+    open: openOrder, newOrder, createOrder, assign, submitCalc, sendOffer, decide, addRate, withdrawRate,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };

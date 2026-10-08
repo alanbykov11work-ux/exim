@@ -179,7 +179,9 @@
         <div><span style="color:var(--muted);">Вес:</span> ${esc(o.weight || '—')}</div>
         <div><span style="color:var(--muted);">Транспорт:</span> ${esc(o.transport || '—')}</div>
         <div><span style="color:var(--muted);">Тип:</span> ${esc(o.container || '—')}</div>
-      </div>`;
+      </div>
+      ${(!isLog() && (['new', 'assigned', 'calculated'].includes(o.status) || (isMgr() && o.status === 'rejected')))
+        ? `<button class="btn btn-secondary btn-sm" style="margin-bottom:14px;" onclick="WF.editRequest('${o.id}')">Изменить заявку</button>` : ''}`;
     if (od) body += `<div class="auth-msg" style="background:rgba(225,29,72,.07);border:1px solid rgba(225,29,72,.25);color:var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13.5px;">Расчёт просрочен — дедлайн был ${dt(o.calc_deadline)}</div>`;
 
     // ---- вид для КЛИЕНТА ----
@@ -714,6 +716,37 @@
   }
 
   // ---------- интеграция с приложением ----------
+  const REQ_FIELDS = [['origin', 'Откуда'], ['destination', 'Куда'], ['transport', 'Транспорт'], ['cargo', 'Груз'], ['weight', 'Вес'], ['container', 'Тип'], ['comment', 'Комментарий']];
+  function editRequest(id) {
+    const o = CACHE.orders.find(x => x.id === id); if (!o) return;
+    const body = REQ_FIELDS.map(([k, l]) => `<div class="form-group"><label class="form-label">${l}</label>
+        <input class="form-input" id="wf-rev-${k}" value="${esc(o[k] || '')}"></div>`).join('') + `
+      <div class="form-group"><label class="form-label">Что изменилось и почему</label>
+        <input class="form-input" id="wf-rev-reason" placeholder="Например: уточнили вес"></div>
+      <div style="color:var(--muted);font-size:13px;margin-bottom:10px;">Изменение создаст новую версию заявки. Действующие ставки будут отозваны, расчёт начнётся заново.</div>
+      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.saveRequest('${o.id}')">Сохранить новую версию</button>
+      <div id="wf-revs" style="margin-top:16px;"></div>`;
+    openModal('Изменение заявки ' + o.ref, body);
+    loadRevisions(id);
+  }
+  async function loadRevisions(id) {
+    const box = document.getElementById('wf-revs'); if (!box) return;
+    const { data, error } = await S().from('order_revisions').select('revision, reason, created_at').eq('order_id', id).order('revision', { ascending: false });
+    if (error) { box.innerHTML = window.EXIM_STATE ? EXIM_STATE.html(EXIM_STATE.classify(error), null, () => loadRevisions(id)) : ''; return; }
+    box.innerHTML = (data || []).length ? '<div style="font-weight:600;margin-bottom:6px;">История версий</div>' + data.map(r =>
+      `<div style="font-size:13.5px;padding:4px 0;">Версия ${r.revision} · ${dt(r.created_at)}${r.reason ? ' · ' + esc(r.reason) : ''}</div>`).join('') : '';
+  }
+  async function saveRequest(id) {
+    const o = CACHE.orders.find(x => x.id === id); if (!o) return;
+    const patch = {};
+    REQ_FIELDS.forEach(([k]) => { const v = ((document.getElementById('wf-rev-' + k) || {}).value || '').trim(); if (v !== (o[k] || '')) patch[k] = v; });
+    if (!Object.keys(patch).length) { showToast('info', 'Изменений нет', ''); return; }
+    const reason = ((document.getElementById('wf-rev-reason') || {}).value || '').trim() || null;
+    const { data, error } = await S().rpc('revise_order', { p_order_id: id, p_data: patch, p_reason: reason });
+    if (error) { showToast('danger', 'Заявка не изменена', error.message); return; }
+    CACHE.loadedAt = 0;
+    closeModal(); showToast('success', 'Заявка обновлена', 'Версия ' + data); renderWF();
+  }
   const RATES = {};
   async function loadRates(orderId) {
     const box = document.getElementById('wf-rates');
@@ -755,7 +788,7 @@
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,
-    open: openOrder, newOrder, createOrder, assign, submitCalc, sendOffer, decide, addRate, withdrawRate,
+    open: openOrder, newOrder, createOrder, assign, submitCalc, sendOffer, decide, addRate, withdrawRate, editRequest, saveRequest,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };

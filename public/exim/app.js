@@ -1425,35 +1425,61 @@
       }, 900);
     }
 
-    function headerSearch() {
-      const input = document.getElementById('hdr-search-input');
-      const q = (input.value || '').trim().toUpperCase();
-      if (!q) return;
-      const found = APP_STATE.shipments.find(s => s.id.toUpperCase() === q || s.id.toUpperCase().includes(q));
-      if (found) {
-        input.value = '';
-        navigate('shipment-detail', null, found.id);
-        showToast('success', 'Найдено', 'Открываем ' + found.id);
-      } else {
-        showToast('danger', 'Не найдено', 'Заявка ' + q + ' не найдена');
+    // Поиск по номеру идёт на сервере и видит ровно то, что доступно роли:
+    // неизвестный номер и чужой объект дают одинаковый ответ (AC-TASK-008).
+    async function findByNumber(raw) {
+      const q = String(raw || '').trim();
+      if (q.length < 3) return { status: 'too-short' };
+      const s = window.__SUPA;
+      if (!s) return { status: 'error' };
+      const { data, error } = await s.rpc('find_by_number', { p_number: q });
+      if (error) return { status: 'error' };
+      if (!data || !data.length) return { status: 'not-found', query: q };
+      return { status: 'found', item: data[0] };
+    }
+
+    async function openFound(item) {
+      if (item.kind === 'order') {
+        navigate('workflow', null, item.id);
+        if (window.WF && window.WF.getData) {
+          await window.WF.getData();
+          window.WF.open(item.id);
+        }
+        return;
+      }
+      if (item.kind === 'transport') {
+        navigate('workflow');
+        if (window.WF && window.WF.getData) {
+          await window.WF.getData();
+          window.WF.tab('transports');
+          window.WF.openTrans(item.id);
+        }
       }
     }
 
-    function trackSearch() {
+    function reportSearch(result) {
+      if (result.status === 'too-short') {
+        showToast('warning', 'Введите номер', 'Номер заявки (ZK-…) или номер перевозки (например, 01-02-10-0007)');
+      } else if (result.status === 'error') {
+        showToast('danger', 'Поиск недоступен', 'Не удалось выполнить поиск. Повторите попытку');
+      } else if (result.status === 'not-found') {
+        showToast('warning', 'Не найдено', 'Объект с номером ' + result.query + ' не найден или недоступен');
+      }
+    }
+
+    async function headerSearch() {
+      const input = document.getElementById('hdr-search-input');
+      const result = await findByNumber(input.value);
+      if (result.status !== 'found') { reportSearch(result); return; }
+      input.value = '';
+      await openFound(result.item);
+    }
+
+    async function trackSearch() {
       const input = document.getElementById('tracking-search-input');
-      const q = (input.value || '').trim().toUpperCase();
-      if (!q) {
-        showToast('warning', 'Введите номер', 'Укажите номер заявки в формате EX-XXXX');
-        input.focus();
-        return;
-      }
-      const found = APP_STATE.shipments.find(s => s.id.toUpperCase() === q);
-      if (found) {
-        showToast('success', 'Заявка найдена', `Открываем ${found.id}`);
-        navigate('shipment-detail', null, found.id);
-      } else {
-        showToast('danger', 'Не найдено', `Заявка ${q} не найдена`);
-      }
+      const result = await findByNumber(input.value);
+      if (result.status !== 'found') { reportSearch(result); input.focus(); return; }
+      await openFound(result.item);
     }
 
     // Delegated actions for dynamically-rendered / repeated buttons

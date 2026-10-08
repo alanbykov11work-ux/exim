@@ -236,6 +236,8 @@ export default function EximApp({ user }: { user: EximUser }) {
           loadScript("/exim/modules.js" + V),
           loadScript("/exim/crm.js" + V),
         ]);
+        // навигация подключается последней: она оборачивает navigate всех модулей
+        await loadScript("/exim/router.js" + V);
 
         if (!cancelled) setBooting(false);
       } catch (e) {

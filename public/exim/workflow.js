@@ -185,16 +185,8 @@
     // ---- вид для КЛИЕНТА ----
     if (!isMgr() && !isLog()) {
       if (o.status === 'offer_sent') {
-        body += `<div class="card" style="background:var(--bg);box-shadow:none;margin-bottom:14px;">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Предложение EXIM</div>
-          <div style="font-size:26px;font-weight:700;color:var(--accent);">${fmtT(o.total_price)}</div>
-          ${o.calc_days ? `<div style="font-size:13.5px;color:var(--muted);margin-top:4px;">Срок: ${esc(o.calc_days)}</div>` : ''}
-          ${o.offer_comment ? `<div style="font-size:14px;margin-top:8px;">${esc(o.offer_comment)}</div>` : ''}
-        </div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-primary btn-lg" style="flex:1;" onclick="WF.decide('${o.id}','approved')">Согласовать</button>
-          <button class="btn btn-secondary btn-lg" style="flex:1;" onclick="WF.decide('${o.id}','rejected')">Отклонить</button>
-        </div>`;
+        body += `<div id="wf-offer" data-order="${o.id}" data-days="${esc(o.calc_days || '')}">Загрузка…</div>`;
+        setTimeout(() => loadOffer(o.id), 50);
       } else if (o.status === 'approved' || o.status === 'contract_signed' || o.status === 'converted') {
         body += `<div style="font-size:14.5px;">Вы согласовали предложение <b>${fmtT(o.total_price)}</b>. ${o.status === 'converted' ? 'Перевозка создана — следите за ней во вкладке «Перевозки».' : 'Менеджер готовит договор и перевозку.'}</div>`;
       } else if (o.status === 'rejected') {
@@ -395,16 +387,39 @@
     const total = Number((document.getElementById('wf-total') || {}).value || 0);
     const comment = (document.getElementById('wf-offer-comment') || {}).value || '';
     if (!total) { showToast('warning', 'Укажите итоговую цену', ''); return; }
-    const e1 = (await S().from('orders').update({ total_price: total, offer_comment: comment, offer_sent_at: new Date().toISOString(), status: 'offer_sent' }).eq('id', id)).error;
+    // версия предложения создаётся только через функцию БД; прежняя открытая версия становится неактуальной
+    const e1 = (await S().rpc('send_offer', { p_order_id: id, p_total: total, p_comment: comment || null })).error;
     const e2 = (await S().from('order_finance').update({ margin }).eq('order_id', id)).error;
     if (e1 || e2) { showToast('danger', 'Ошибка', (e1 || e2).message); return; }
     hist(id, 'offer_sent', { margin, total, comment });
     CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Предложение отправлено', 'Клиент увидит цену ' + fmtT(total)); renderWF();
   }
-  async function decide(id, decision) {
-    // решение клиента идёт через защищённую функцию БД — менять цену и статус напрямую нельзя
-    const { error } = await S().rpc('decide_order', { p_order_id: id, p_decision: decision });
+  async function loadOffer(orderId) {
+    const box = document.getElementById('wf-offer');
+    if (!box || box.dataset.order !== orderId) return;
+    const { data, error } = await S().from('commercial_offers')
+      .select('id, version, total_price, currency, comment, valid_until').eq('order_id', orderId).eq('status', 'sent').maybeSingle();
+    if (error || !data) {
+      const st = window.EXIM_STATE;
+      box.innerHTML = st ? st.html(error ? st.classify(error) : 'notfound', error ? null : 'Актуальное предложение не найдено', () => loadOffer(orderId)) : 'Ошибка';
+      return;
+    }
+    const days = box.dataset.days;
+    box.innerHTML = `<div class="card" style="background:var(--bg);box-shadow:none;margin-bottom:14px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Предложение EXIM · версия ${data.version}${data.valid_until ? ' · действует до ' + esc(data.valid_until) : ''}</div>
+        <div style="font-size:26px;font-weight:700;color:var(--accent);">${data.currency === 'KZT' ? fmtT(data.total_price) : Number(data.total_price).toLocaleString('ru-RU') + ' ' + esc(data.currency)}</div>
+        ${days ? `<div style="font-size:13.5px;color:var(--muted);margin-top:4px;">Срок: ${days}</div>` : ''}
+        ${data.comment ? `<div style="font-size:14px;margin-top:8px;">${esc(data.comment)}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary btn-lg" style="flex:1;" onclick="WF.decide('${data.id}','approved')">Согласовать</button>
+        <button class="btn btn-secondary btn-lg" style="flex:1;" onclick="WF.decide('${data.id}','rejected')">Отклонить</button>
+      </div>`;
+  }
+  async function decide(offerId, decision) {
+    // решение привязано к конкретной версии предложения; устаревшая версия будет отклонена БД
+    const { error } = await S().rpc('decide_offer', { p_offer_id: offerId, p_decision: decision });
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     CACHE.loadedAt = 0;
     closeModal();

@@ -23,6 +23,7 @@
   const overdue = o => o.status === 'assigned' && o.calc_deadline && new Date(o.calc_deadline) < new Date();
 
   const OST = {
+    draft:          { l: 'Черновик',           c: '' },
     new:            { l: 'Новая',              c: 'pill-warning' },
     assigned:       { l: 'На расчёте',          c: 'pill-info' },
     calculated:     { l: 'Расчёт готов',        c: 'pill-info' },
@@ -165,6 +166,7 @@
 
   function openOrder(id) {
     const o = CACHE.orders.find(x => x.id === id); if (!o) return;
+    if (o.status === 'draft') { openDraft(id); return; }
     const f = CACHE.fin[o.id] || {};
     const st = OST[o.status] || OST.new;
     const od = overdue(o);
@@ -307,35 +309,75 @@
   }
 
   // ---------- действия цикла 1 ----------
-  async function newOrder() {
-    openModal('Новая заявка на расчёт', `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="form-group"><label class="form-label">Откуда</label><input class="form-input" id="wf-o" placeholder="Урумчи"></div>
-        <div class="form-group"><label class="form-label">Куда</label><input class="form-input" id="wf-d" placeholder="Алматы"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="form-group"><label class="form-label">Транспорт</label>
-          <select class="form-input" id="wf-t"><option>Авто</option><option>ЖД</option><option>Море</option><option>Авиа</option><option>Мультимодальная</option></select></div>
-        <div class="form-group"><label class="form-label">Вес / объём</label><input class="form-input" id="wf-w" placeholder="20 т / 86 м³"></div>
-      </div>
-      <div class="form-group"><label class="form-label">Груз</label><input class="form-input" id="wf-c" placeholder="Оборудование"></div>
-      ${isMgr() ? `<div class="form-group"><label class="form-label">Клиентская компания</label><select class="form-input" id="wf-company">${(CACHE.companies || []).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>` : ''}
-      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.createOrder()">Создать заявку</button>`);
+  // ---- REQ-001: форма запроса, черновик и идемпотентная отправка ----
+  const RQ_FORM = [
+    ['contact_name', 'Контактное лицо *', 'text'], ['contact_phone', 'Телефон контакта', 'tel'],
+    ['origin', 'Откуда *', 'text'], ['destination', 'Куда *', 'text'],
+    ['ready_date', 'Дата готовности груза', 'date'], ['transport', 'Вид транспорта', 'select:|Авто|ЖД|Море|Авиа|Мультимодальная'],
+    ['cargo', 'Груз (название / тип) *', 'text'], ['hs_code', 'Код ТН ВЭД (если известен)', 'text'],
+    ['places', 'Мест', 'number'], ['weight_kg', 'Вес, кг *', 'number'],
+    ['volume_m3', 'Объём, м³ *', 'number'], ['dimensions', 'Габариты', 'text'],
+    ['packaging', 'Упаковка', 'text'], ['stackable', 'Штабелируемый', 'select:|да|нет'],
+    ['loading_method', 'Способ погрузки', 'text'], ['incoterms', 'Incoterms', 'select:|EXW|FCA|FAS|FOB|CFR|CIF|CPT|CIP|DAP|DPU|DDP'],
+    ['consignee', 'Получатель', 'text'], ['comment', 'Комментарий', 'text']
+  ];
+  const RQ_LABEL = Object.fromEntries(RQ_FORM.map(([k, l]) => [k, l.replace(' *', '')]));
+  const DRAFT_KEY = 'exim-req-draft';
+  const draftLocal = { get() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; } },
+    set(v) { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(v)); } catch (e) {} },
+    clear() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} } };
+  function rqInput([k, l, t], val) {
+    const v = val == null ? '' : (k === 'stackable' ? (val === true ? 'да' : val === false ? 'нет' : val) : val);
+    if (t.startsWith('select:')) return `<div class="form-group"><label class="form-label" for="rq-${k}">${l}</label><select class="form-input" id="rq-${k}" onchange="WF.rqKeep()">${t.slice(7).split('|').map(o => `<option value="${o}" ${o === String(v) ? 'selected' : ''}>${o || '—'}</option>`).join('')}</select></div>`;
+    return `<div class="form-group"><label class="form-label" for="rq-${k}">${l}</label><input class="form-input" id="rq-${k}" type="${t}" value="${esc(v)}" oninput="WF.rqKeep()" ${t === 'number' ? 'min="0" step="any"' : ''}></div>`;
   }
-  async function createOrder() {
-    const v = id => (document.getElementById(id) || {}).value || '';
-    if (!v('wf-o') || !v('wf-d')) { showToast('warning', 'Заполните маршрут', 'Укажите откуда и куда'); return; }
-    // scope заявки: клиент — только своя компания из membership,
-    // менеджер — выбранная компания своего workspace; сервер проверяет оба случая
-    const companyId = isMgr() ? v('wf-company') : U().clientCompanyId;
-    if (!companyId) { showToast('warning', 'Нет клиентской компании', 'Заявка создаётся только в рамках клиентской компании'); return; }
-    const row = { ref: refOrd(), workspace_id: U().workspaceId, client_company_id: companyId, client_id: U().id, created_by: U().id, origin: v('wf-o'), destination: v('wf-d'), transport: v('wf-t'), cargo: v('wf-c'), weight: v('wf-w') };
-    const { data, error } = await S().from('orders').insert(row).select('id, ref').single();
-    if (error) { showToast('danger', 'Ошибка', error.message); return; }
-    hist(data.id, 'created', row);
+  function rqCollect() {
+    const out = {};
+    RQ_FORM.forEach(([k]) => { const el = document.getElementById('rq-' + k); if (!el) return;
+      let v = el.value.trim(); if (k === 'stackable') v = v === 'да' ? true : v === 'нет' ? false : null; out[k] = v; });
+    return out;
+  }
+  function rqKeep() { const box = document.getElementById('rq-form'); if (box) draftLocal.set({ key: box.dataset.key, company: (document.getElementById('wf-company') || {}).value || null, data: rqCollect() }); }
+  async function newOrder(existing) {
+    const saved = existing ? null : draftLocal.get();
+    const key = existing ? existing.client_request_id : (saved && saved.key) || crypto.randomUUID();
+    const data = existing || (saved && saved.data) || {};
+    const companies = (CACHE.companies || []).map(c => `<option value="${c.id}" ${saved && saved.company === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    openModal(existing ? 'Черновик ' + existing.ref : 'Новый запрос на расчёт', `
+      <div id="rq-form" data-key="${esc(key)}">
+        ${isMgr() && !existing ? `<div class="form-group"><label class="form-label" for="wf-company">Клиентская компания *</label><select class="form-input" id="wf-company" onchange="WF.rqKeep()">${companies}</select></div>` : ''}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 12px;">${RQ_FORM.map(f => rqInput(f, data[f[0]])).join('')}</div>
+        <div id="rq-errors" role="alert" style="color:var(--accent);font-size:13.5px;margin:4px 0 10px;"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-lg" style="flex:1;" onclick="WF.saveDraft(false)">Сохранить черновик</button>
+          <button class="btn btn-primary btn-lg" style="flex:1;" onclick="WF.saveDraft(true)">Отправить менеджеру</button>
+        </div>
+        <div style="color:var(--muted);font-size:12.5px;margin-top:8px;">* обязательны для отправки. Черновик можно сохранить с любым набором полей.</div>
+      </div>`);
+    if (existing) { const box = document.getElementById('rq-form'); box.dataset.company = existing.client_company_id; }
+  }
+  async function saveDraft(submit) {
+    const box = document.getElementById('rq-form'); if (!box) return;
+    const companyId = box.dataset.company || (isMgr() ? (document.getElementById('wf-company') || {}).value : U().clientCompanyId);
+    const errBox = document.getElementById('rq-errors');
+    if (!companyId) { errBox.textContent = 'Нет доступной клиентской компании — запрос создаётся только в её рамках.'; return; }
+    rqKeep();
+    const { data, error } = await S().rpc('save_request', { p_client_request_id: box.dataset.key, p_company_id: companyId, p_data: rqCollect(), p_submit: !!submit });
+    if (error) {
+      const m = /missing required fields: (.*)/.exec(error.message || '');
+      errBox.innerHTML = m ? 'Недостаточно данных: ' + m[1].split(',').map(k => esc(RQ_LABEL[k] || k)).join(', ')
+        : esc(error.message) + ' <button class="btn btn-ghost btn-sm" onclick="WF.saveDraft(' + !!submit + ')">Повторить</button>';
+      return;
+    }
+    const r = Array.isArray(data) ? data[0] : data;
     CACHE.loadedAt = 0;
-    closeModal(); showToast('success', 'Заявка создана', data.ref + ' — менеджер назначит логиста');
-    renderWF();
+    if (submit) { draftLocal.clear(); closeModal(); showToast('success', 'Запрос отправлен', r.ref + ' — менеджер проверит данные'); renderWF(); }
+    else { errBox.textContent = ''; showToast('info', 'Черновик сохранён', r.ref + (r.missing && r.missing.length ? ' · не хватает: ' + r.missing.map(k => RQ_LABEL[k] || k).join(', ') : '')); }
+  }
+  async function openDraft(id) {
+    const { data, error } = await S().from('orders').select(['id', 'ref', 'client_company_id', 'client_request_id'].concat(RQ_FORM.map(f => f[0])).join(',')).eq('id', id).maybeSingle();
+    if (error || !data) { showToast('danger', 'Черновик недоступен', error ? error.message : ''); return; }
+    newOrder(data);
   }
   async function assign(id) {
     const lg = (document.getElementById('wf-logist') || {}).value;
@@ -716,12 +758,14 @@
   }
 
   // ---------- интеграция с приложением ----------
-  const REQ_FIELDS = [['origin', 'Откуда'], ['destination', 'Куда'], ['transport', 'Транспорт'], ['cargo', 'Груз'], ['weight', 'Вес'], ['container', 'Тип'], ['comment', 'Комментарий']];
-  function editRequest(id) {
+  const REQ_ORIG = {};
+  async function editRequest(id) {
     const o = CACHE.orders.find(x => x.id === id); if (!o) return;
-    const body = REQ_FIELDS.map(([k, l]) => `<div class="form-group"><label class="form-label">${l}</label>
-        <input class="form-input" id="wf-rev-${k}" value="${esc(o[k] || '')}"></div>`).join('') + `
-      <div class="form-group"><label class="form-label">Что изменилось и почему</label>
+    const { data, error } = await S().from('orders').select(RQ_FORM.map(f => f[0]).join(',')).eq('id', id).maybeSingle();
+    if (error || !data) { showToast('danger', 'Заявка недоступна', error ? error.message : ''); return; }
+    REQ_ORIG[id] = data;
+    const body = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 12px;">${RQ_FORM.map(f => rqInput(f, data[f[0]])).join('')}</div>
+      <div class="form-group"><label class="form-label" for="wf-rev-reason">Что изменилось и почему</label>
         <input class="form-input" id="wf-rev-reason" placeholder="Например: уточнили вес"></div>
       <div style="color:var(--muted);font-size:13px;margin-bottom:10px;">Изменение создаст новую версию заявки. Действующие ставки будут отозваны, расчёт начнётся заново.</div>
       <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.saveRequest('${o.id}')">Сохранить новую версию</button>
@@ -737,9 +781,14 @@
       `<div style="font-size:13.5px;padding:4px 0;">Версия ${r.revision} · ${dt(r.created_at)}${r.reason ? ' · ' + esc(r.reason) : ''}</div>`).join('') : '';
   }
   async function saveRequest(id) {
-    const o = CACHE.orders.find(x => x.id === id); if (!o) return;
-    const patch = {};
-    REQ_FIELDS.forEach(([k]) => { const v = ((document.getElementById('wf-rev-' + k) || {}).value || '').trim(); if (v !== (o[k] || '')) patch[k] = v; });
+    const orig = REQ_ORIG[id] || {};
+    const cur = rqCollect(), patch = {};
+    const norm = v => v == null ? '' : String(v);
+    Object.keys(cur).forEach(k => {
+      const a = norm(cur[k]), b = norm(orig[k]);
+      const same = (k === 'weight_kg' || k === 'volume_m3' || k === 'places') && a && b ? Number(a) === Number(b) : a === b;
+      if (!same) patch[k] = cur[k];
+    });
     if (!Object.keys(patch).length) { showToast('info', 'Изменений нет', ''); return; }
     const reason = ((document.getElementById('wf-rev-reason') || {}).value || '').trim() || null;
     const { data, error } = await S().rpc('revise_order', { p_order_id: id, p_data: patch, p_reason: reason });
@@ -788,7 +837,7 @@
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,
-    open: openOrder, newOrder, createOrder, assign, submitCalc, sendOffer, decide, addRate, withdrawRate, editRequest, saveRequest,
+    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, editRequest, saveRequest,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };

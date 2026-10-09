@@ -12,7 +12,8 @@ function load() {
 test('counters group every workflow status exactly once', () => {
   const w = load();
   const all = Object.values(w.EXIM_COUNTS.GROUPS).flat();
-  const statuses = ['new','assigned','calculated','offer_sent','approved','rejected','contract_signed','converted','archived'];
+  // drafts are not requests yet and are not counted
+  const statuses = ['new','clarification','assigned','calculated','offer_sent','approved','rejected','contract_signed','converted','archived'];
   assert.deepEqual([...all].sort(), [...statuses].sort());
 });
 

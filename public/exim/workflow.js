@@ -24,6 +24,7 @@
 
   const OST = {
     draft:          { l: 'Черновик',           c: '' },
+    clarification:  { l: 'На уточнении',       c: 'pill-warning' },
     new:            { l: 'Новая',              c: 'pill-warning' },
     assigned:       { l: 'На расчёте',          c: 'pill-info' },
     calculated:     { l: 'Расчёт готов',        c: 'pill-info' },
@@ -167,6 +168,7 @@
   function openOrder(id) {
     const o = CACHE.orders.find(x => x.id === id); if (!o) return;
     if (o.status === 'draft') { openDraft(id); return; }
+    setTimeout(() => loadClar(o.id), 50);
     const f = CACHE.fin[o.id] || {};
     const st = OST[o.status] || OST.new;
     const od = overdue(o);
@@ -182,13 +184,19 @@
         <div><span style="color:var(--muted);">Транспорт:</span> ${esc(o.transport || '—')}</div>
         <div><span style="color:var(--muted);">Тип:</span> ${esc(o.container || '—')}</div>
       </div>
-      ${(!isLog() && (['new', 'assigned', 'calculated'].includes(o.status) || (isMgr() && o.status === 'rejected')))
+      <div id="wf-clar" data-order="${o.id}"></div>
+      ${(!isLog() && (['new', 'clarification', 'assigned', 'calculated'].includes(o.status) || (isMgr() && o.status === 'rejected')))
         ? `<button class="btn btn-secondary btn-sm" style="margin-bottom:14px;" onclick="WF.editRequest('${o.id}')">Изменить заявку</button>` : ''}`;
     if (od) body += `<div class="auth-msg" style="background:rgba(225,29,72,.07);border:1px solid rgba(225,29,72,.25);color:var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13.5px;">Расчёт просрочен — дедлайн был ${dt(o.calc_deadline)}</div>`;
 
     // ---- вид для КЛИЕНТА ----
     if (!isMgr() && !isLog()) {
-      if (o.status === 'offer_sent') {
+      if (o.status === 'clarification') {
+        body += `<div class="form-group"><label class="form-label" for="wf-clar-msg">Ответ менеджеру</label>
+          <textarea class="form-input" id="wf-clar-msg" rows="2"></textarea></div>
+          <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.answerClar('${o.id}')">Ответить и вернуть менеджеру</button>
+          <div style="color:var(--muted);font-size:13px;margin-top:8px;">Если нужно поправить данные — нажмите «Изменить заявку».</div>`;
+      } else if (o.status === 'offer_sent') {
         body += `<div id="wf-offer" data-order="${o.id}" data-days="${esc(o.calc_days || '')}">Загрузка…</div>`;
         setTimeout(() => loadOffer(o.id), 50);
       } else if (o.status === 'approved' || o.status === 'contract_signed' || o.status === 'converted') {
@@ -252,7 +260,12 @@
           <select class="form-input" id="wf-logist">${opts || '<option value="">Нет логистов — назначьте роль в профилях</option>'}</select></div>
         <div class="form-group"><label class="form-label">Дедлайн расчёта</label>
           <input class="form-input" id="wf-deadline" type="datetime-local"></div>
-        <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.assign('${o.id}')">Назначить и отправить на расчёт</button>`;
+        <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.assign('${o.id}')">Назначить и отправить на расчёт</button>
+        <div class="form-group" style="margin-top:14px;"><label class="form-label" for="wf-clar-msg">Не хватает данных?</label>
+          <textarea class="form-input" id="wf-clar-msg" rows="2" placeholder="Что уточнить у клиента"></textarea></div>
+        <button class="btn btn-secondary btn-lg" style="width:100%;" onclick="WF.returnClar('${o.id}')">Вернуть клиенту на уточнение</button>`;
+    } else if (o.status === 'clarification') {
+      body += `<div style="color:var(--muted);font-size:14px;">Заявка у клиента на уточнении.</div>`;
     } else if (o.status === 'assigned') {
       body += `<div style="color:var(--muted);font-size:14px;">Логист: <b>${profName(o.logist_id)}</b> · дедлайн ${dt(o.calc_deadline)}. Ожидаем расчёт.</div>`;
     } else if (o.status === 'calculated') {
@@ -269,7 +282,9 @@
             <input class="form-input" id="wf-total" type="number" value="${cost}"></div>
         </div>
         <div class="form-group"><label class="form-label">Комментарий для клиента</label>
-          <textarea class="form-input" id="wf-offer-comment" rows="2" placeholder="Срок 7–9 дней, страхование включено"></textarea></div>
+          <textarea class="form-input" id="wf-offer-comment" rows="2" placeholder="Например: срок, что включено в цену"></textarea></div>
+        <div class="form-group"><label class="form-label" for="wf-price-reason">Причина изменения цены (если предложение уже отправлялось)</label>
+          <input class="form-input" id="wf-price-reason" placeholder="Видна только сотрудникам"></div>
         <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.sendOffer('${o.id}')">Отправить предложение клиенту</button>`;
     } else if (o.status === 'offer_sent') {
       body += calcBlock(o, f) + offerBlock(o, f) + `<div style="color:var(--muted);font-size:14px;margin-top:8px;">Ожидаем решение клиента.</div>`;
@@ -432,9 +447,11 @@
     const comment = (document.getElementById('wf-offer-comment') || {}).value || '';
     if (!total) { showToast('warning', 'Укажите итоговую цену', ''); return; }
     // версия предложения создаётся только через функцию БД; прежняя открытая версия становится неактуальной
-    const e1 = (await S().rpc('send_offer', { p_order_id: id, p_total: total, p_comment: comment || null })).error;
+    const reason = ((document.getElementById('wf-price-reason') || {}).value || '').trim();
+    const e1 = (await S().rpc('send_offer', { p_order_id: id, p_total: total, p_comment: comment || null, p_price_reason: reason || null })).error;
+    if (e1) { showToast('danger', /requires a reason/.test(e1.message) ? 'Укажите причину изменения цены' : 'Ошибка', e1.message); return; }
     const e2 = (await S().from('order_finance').update({ margin }).eq('order_id', id)).error;
-    if (e1 || e2) { showToast('danger', 'Ошибка', (e1 || e2).message); return; }
+    if (e2) { showToast('danger', 'Предложение отправлено, но маржа не сохранена', e2.message); }
     hist(id, 'offer_sent', { margin, total, comment });
     CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Предложение отправлено', 'Клиент увидит цену ' + fmtT(total)); renderWF();
@@ -459,7 +476,10 @@
       <div style="display:flex;gap:10px;">
         <button class="btn btn-primary btn-lg" style="flex:1;" onclick="WF.decide('${data.id}','approved')">Согласовать</button>
         <button class="btn btn-secondary btn-lg" style="flex:1;" onclick="WF.decide('${data.id}','rejected')">Отклонить</button>
-      </div>`;
+      </div>
+      <div class="form-group" style="margin-top:14px;"><label class="form-label" for="wf-clar-msg">Есть вопрос по предложению?</label>
+        <textarea class="form-input" id="wf-clar-msg" rows="2"></textarea></div>
+      <button class="btn btn-ghost btn-lg" style="width:100%;" onclick="WF.askOffer('${data.id}')">Запросить уточнение</button>`;
   }
   async function decide(offerId, decision) {
     // решение привязано к конкретной версии предложения; устаревшая версия будет отклонена БД
@@ -796,6 +816,24 @@
     CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Заявка обновлена', 'Версия ' + data); renderWF();
   }
+  const DIR = { to_client: 'Менеджер → клиент', to_manager: 'Клиент → менеджер' };
+  async function loadClar(orderId) {
+    const box = document.getElementById('wf-clar'); if (!box || box.dataset.order !== orderId) return;
+    const { data, error } = await S().from('order_clarifications').select('direction, message, created_at').eq('order_id', orderId).order('id');
+    if (error) { box.innerHTML = window.EXIM_STATE ? EXIM_STATE.html(EXIM_STATE.classify(error), null, () => loadClar(orderId)) : ''; return; }
+    box.innerHTML = (data || []).length ? '<div class="card" style="background:var(--bg);box-shadow:none;margin-bottom:14px;"><div style="font-weight:600;margin-bottom:6px;">Уточнения</div>' +
+      data.map(m => `<div style="font-size:13.5px;padding:4px 0;"><span style="color:var(--muted);">${DIR[m.direction]} · ${dt(m.created_at)}</span><br>${esc(m.message)}</div>`).join('') + '</div>' : '';
+  }
+  function clarMsg() { return ((document.getElementById('wf-clar-msg') || {}).value || '').trim(); }
+  async function clarCall(fn, args, ok) {
+    if ((args.p_message || '').length < 3) { showToast('warning', 'Напишите сообщение', 'Минимум 3 символа'); return; }
+    const { error } = await S().rpc(fn, args);
+    if (error) { showToast('danger', 'Не отправлено', error.message); return; }
+    CACHE.loadedAt = 0; closeModal(); showToast('success', ok, ''); renderWF();
+  }
+  const returnClar = id => clarCall('return_for_clarification', { p_order_id: id, p_message: clarMsg() }, 'Заявка возвращена клиенту');
+  const answerClar = id => clarCall('answer_clarification', { p_order_id: id, p_message: clarMsg() }, 'Ответ отправлен менеджеру');
+  const askOffer = offerId => clarCall('request_offer_clarification', { p_offer_id: offerId, p_message: clarMsg() }, 'Вопрос отправлен менеджеру');
   const RATES = {};
   async function loadRates(orderId) {
     const box = document.getElementById('wf-rates');
@@ -837,7 +875,7 @@
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,
-    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, editRequest, saveRequest,
+    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, editRequest, saveRequest,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };

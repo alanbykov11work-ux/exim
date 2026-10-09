@@ -3,7 +3,7 @@
   'use strict';
   var GROUPS = {
     new: ['new'],
-    progress: ['assigned', 'calculated', 'offer_sent', 'approved', 'contract_signed'],
+    progress: ['clarification', 'assigned', 'calculated', 'offer_sent', 'approved', 'contract_signed'],
     done: ['converted', 'rejected', 'archived']
   };
   var ACTIVE_TRANSPORT_EXCLUDED = ['delivered', 'archived'];
@@ -11,6 +11,7 @@
   function countOrders(orders, transports) {
     var c = { total: 0, new: 0, progress: 0, done: 0, activeTransports: 0 };
     (orders || []).forEach(function (o) {
+      if (o.status === 'draft') return;
       c.total++;
       Object.keys(GROUPS).forEach(function (g) { if (GROUPS[g].indexOf(o.status) >= 0) c[g]++; });
     });

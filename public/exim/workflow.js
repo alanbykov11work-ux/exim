@@ -93,6 +93,15 @@
       fin.forEach(f => { next.fin[f.order_id] = f; });
     }
     next.profiles = must(await s.from('profiles').select('id, full_name, email, role, company, staff_code'), 'профили');
+    // этап и клиентское название этапа из версии workflow, закреплённой за объектом
+    const stageOf = async (type, list) => {
+      if (!list.length) return;
+      const rows = must(await s.rpc('workflow_stages', { p_type: type, p_ids: list.map(x => x.id) }), 'этапы');
+      const m = {}; rows.forEach(r => { m[r.object_id] = r; });
+      list.forEach(x => { const r = m[x.id]; if (r) { x.stage = r.stage; x.stage_label = r.client_label; } });
+    };
+    await stageOf('quote_request', next.orders);
+    await stageOf('shipment', next.transports);
     return next;
   }
   function stateBox(err, retry) {
@@ -171,7 +180,7 @@
         ${isLog() ? '' : newBtn}</div>`;
     }
     const rows = os.map(o => {
-      const st = OST[o.status] || OST.new;
+      const st = stageView(o);
       const od = overdue(o);
       return `<tr style="cursor:pointer;" onclick="WF.open('${o.id}')">
         <td class="mono">${esc(o.ref)}</td>
@@ -188,12 +197,23 @@
       <tbody>${rows}</tbody></table></div>`;
   }
 
+  // Сотрудник видит внутренний этап, клиент — только клиентское название из шаблона.
+  const STAGE_INT = { draft: 'Черновик', manager_review: 'Проверка менеджером', data_required: 'Нужны данные', sent_to_logistician: 'Передана логисту',
+    rate_search: 'Поиск ставок', rate_received: 'Ставки получены', offer_preparation: 'Подготовка предложения', offer_to_client: 'Предложение у клиента',
+    clarification_requested: 'Клиент уточняет', approved: 'Согласована', rejected: 'Отклонена', contract_pending: 'Оформление договора',
+    contract_signed: 'Договор подписан', converted_to_shipment: 'Перевозка создаётся', closed: 'Перевозка создана', closed_without_rate: 'Закрыта без ставки' };
+  function stageView(o) {
+    const base = OST[o.status] || OST.new;
+    if (o.stage && (isMgr() || isLog())) return { l: STAGE_INT[o.stage] || o.stage, c: base.c };
+    if (o.stage_label) return { l: o.stage_label, c: base.c };
+    return base;
+  }
   function openOrder(id) {
     const o = CACHE.orders.find(x => x.id === id); if (!o) return;
     if (o.status === 'draft') { openDraft(id); return; }
     setTimeout(() => { loadClar(o.id); loadFiles(o.id); }, 50);
     const f = CACHE.fin[o.id] || {};
-    const st = OST[o.status] || OST.new;
+    const st = stageView(o);
     const od = overdue(o);
     let body = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -236,7 +256,12 @@
 
     // ---- вид для ЛОГИСТА ----
     if (isLog()) {
-      if (o.status === 'assigned' || o.status === 'new') {
+      if (o.stage === 'sent_to_logistician') {
+        body += `<div style="font-weight:600;margin:6px 0 10px;">Заявка передана вам на расчёт</div>
+          <button class="btn btn-primary btn-lg" style="width:100%;margin-bottom:12px;" onclick="WF.logistAccept('${o.id}')">Данных достаточно — начать поиск ставок</button>
+          <div class="form-group"><label class="form-label" for="wf-clar-msg">Чего не хватает</label><textarea class="form-input" id="wf-clar-msg" rows="2"></textarea></div>
+          <button class="btn btn-secondary btn-lg" style="width:100%;" onclick="WF.logistNeedData('${o.id}')">Запросить данные</button>`;
+      } else if (o.stage === 'rate_search' || (!o.stage && o.status === 'assigned')) {
         const exp = (f.expenses || []);
         body += `<div style="font-weight:600;margin:6px 0 10px;">Расчёт ${o.calc_deadline ? '· дедлайн ' + dt(o.calc_deadline) : ''}</div>
           <div class="form-group"><label class="form-label">Маршрут следования</label>
@@ -258,16 +283,24 @@
           </div>
           <div class="form-group"><label class="form-label">Ставки перевозчиков (минимум 2)</label>
             <div id="wf-rates" data-order="${o.id}" data-edit="1">Загрузка…</div>
-            <div style="display:grid;grid-template-columns:2fr 1fr 80px;gap:8px;margin-top:8px;">
-              <input class="form-input" id="wf-rate-carrier" placeholder="Перевозчик">
-              <input class="form-input" id="wf-rate-amount" type="number" placeholder="Ставка">
-              <input class="form-input" id="wf-rate-cur" value="KZT" maxlength="3">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:8px;">
+              <input class="form-input" id="wf-rate-carrier" placeholder="Перевозчик / источник ставки" aria-label="Перевозчик">
+              <input class="form-input" id="wf-rate-amount" type="number" placeholder="Цена" aria-label="Цена">
+              <input class="form-input" id="wf-rate-cur" value="KZT" maxlength="3" aria-label="Валюта">
+              <input class="form-input" id="wf-rate-valid" type="date" aria-label="Действует до" title="Действует до">
+              <input class="form-input" id="wf-rate-days" type="number" placeholder="Срок, дней" aria-label="Срок, дней">
+              <input class="form-input" id="wf-rate-avail" placeholder="Доступность" aria-label="Доступность">
+              <input class="form-input" id="wf-rate-route" placeholder="Маршрут" aria-label="Маршрут" value="${esc(o.origin)} → ${esc(o.destination)}">
+              <select class="form-input" id="wf-rate-mode" aria-label="Транспорт"><option value="road">Авто</option><option value="rail">ЖД</option><option value="sea">Море</option><option value="air">Авиа</option><option value="multimodal">Мультимодальная</option></select>
+              <input class="form-input" id="wf-rate-source" placeholder="Источник" aria-label="Источник">
+              <input class="form-input" id="wf-rate-comment" placeholder="Комментарий" aria-label="Комментарий">
             </div>
+            <div style="color:var(--muted);font-size:12px;margin-top:4px;">Каждая ставка — отдельная запись. Для завершения поиска нужны две полностью заполненные ставки.</div>
             <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="WF.addRate('${o.id}')">+ добавить ставку</button>
           </div>
           <div class="form-group"><label class="form-label">Комментарий менеджеру</label>
             <textarea class="form-input" id="wf-comment" rows="2">${esc(o.calc_comment)}</textarea></div>
-          <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.submitCalc('${o.id}')">Отправить расчёт менеджеру</button>`;
+          <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.submitCalc('${o.id}')">Завершить поиск ставок и передать менеджеру</button>`;
         setTimeout(() => { calcSum(); loadRates(o.id); }, 50);
       } else {
         body += calcBlock(o, f) + `<div style="color:var(--muted);font-size:13.5px;margin-top:10px;">Расчёт отправлен ${dt(o.calc_submitted_at)}.</div>`;
@@ -291,7 +324,10 @@
     } else if (o.status === 'clarification') {
       body += `<div style="color:var(--muted);font-size:14px;">Заявка у клиента на уточнении.</div>`;
     } else if (o.status === 'assigned') {
-      body += `<div style="color:var(--muted);font-size:14px;">Логист: <b>${profName(o.logist_id)}</b> · дедлайн ${dt(o.calc_deadline)}. Ожидаем расчёт.</div>`;
+      body += `<div style="color:var(--muted);font-size:14px;">Логист: <b>${profName(o.logist_id)}</b> · дедлайн ${dt(o.calc_deadline)}. Ожидаем расчёт.</div>
+        <div class="form-group" style="margin-top:14px;"><label class="form-label" for="wf-close-reason">Закрыть без ставки (причина обязательна)</label>
+          <input class="form-input" id="wf-close-reason"></div>
+        <button class="btn btn-secondary" onclick="WF.closeNoRate('${o.id}')">Закрыть без ставки</button>`;
     } else if (o.status === 'calculated') {
       const cost = Number(f.cost || 0);
       setTimeout(() => loadRates(o.id), 50);
@@ -319,7 +355,7 @@
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 12px;">
           <div class="form-group"><label class="form-label" for="wf-agr-kind">Основание</label>
             <select class="form-input" id="wf-agr-kind"><option value="contract">Договор</option><option value="addendum">Допсоглашение</option><option value="signed_offer">Подписанное предложение</option><option value="invoice_paid">Оплаченный счёт</option></select></div>
-          <div class="form-group"><label class="form-label" for="wf-agr-num">Номер документа</label><input class="form-input" id="wf-agr-num"></div>
+          <div class="form-group"><label class="form-label" for="wf-agr-num">Номер документа или ссылка *</label><input class="form-input" id="wf-agr-num"></div>
           <div class="form-group"><label class="form-label" for="wf-agr-date">Дата подписания</label><input class="form-input" id="wf-agr-date" type="date" value="${new Date().toISOString().slice(0, 10)}"></div>
         </div>
         <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.signContract('${o.id}')">Зафиксировать основание</button>`;
@@ -429,8 +465,8 @@
     const lg = (document.getElementById('wf-logist') || {}).value;
     const dl = (document.getElementById('wf-deadline') || {}).value;
     if (!lg) { showToast('warning', 'Выберите логиста', 'Назначьте роль logist нужному сотруднику'); return; }
-    const upd = { logist_id: lg, status: 'assigned', calc_deadline: dl ? new Date(dl).toISOString() : null };
-    const { error } = await S().from('orders').update(upd).eq('id', id);
+    const upd = { logist_id: lg, calc_deadline: dl ? new Date(dl).toISOString() : null };
+    const { error } = await S().rpc('assign_logist', { p_order_id: id, p_logist: lg, p_deadline: upd.calc_deadline });
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     hist(id, 'assigned', upd);
     CACHE.loadedAt = 0;
@@ -464,10 +500,13 @@
     const cost = expenses.reduce((s, e) => s + e.amount, 0);
     if (!cost) { showToast('warning', 'Заполните статьи расчёта', 'Добавьте хотя бы одну статью с суммой'); return; }
     if ((RATES[id] || []).filter(r => r.status === 'active').length < 2) { showToast('warning', 'Нужно минимум 2 ставки', 'Добавьте ставки перевозчиков'); return; }
-    const updO = { calc_route: v('wf-route'), calc_days: v('wf-days'), calc_comment: v('wf-comment'), calc_submitted_at: new Date().toISOString(), status: 'calculated' };
+    const updO = { calc_route: v('wf-route'), calc_days: v('wf-days'), calc_comment: v('wf-comment') };
     const e1 = (await S().from('orders').update(updO).eq('id', id)).error;
     const e2 = (await S().from('order_finance').upsert({ order_id: id, cost, expenses })).error;
     if (e1 || e2) { showToast('danger', 'Ошибка', (e1 || e2).message); return; }
+    // переход rate_search → rate_received — отдельное действие, сервер проверит две валидные ставки
+    const e3 = (await S().rpc('complete_rate_search', { p_order_id: id })).error;
+    if (e3) { showToast('danger', 'Поиск ставок не завершён', e3.message); return; }
     hist(id, 'calculated', { ...updO, cost, expenses });
     CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Расчёт отправлен', 'Менеджер получит уведомление'); renderWF();
@@ -512,9 +551,28 @@
         <textarea class="form-input" id="wf-clar-msg" rows="2"></textarea></div>
       <button class="btn btn-ghost btn-lg" style="width:100%;" onclick="WF.askOffer('${data.id}')">Запросить уточнение</button>`;
   }
+  async function logistAccept(id) {
+    const { error } = await S().rpc('logist_accept', { p_order_id: id });
+    if (error) { showToast('danger', 'Не принято', error.message); return; }
+    CACHE.loadedAt = 0; closeModal(); showToast('success', 'Поиск ставок начат', ''); renderWF();
+  }
+  async function logistNeedData(id) {
+    const msg = ((document.getElementById('wf-clar-msg') || {}).value || '').trim();
+    const { error } = await S().rpc('logist_request_data', { p_order_id: id, p_message: msg });
+    if (error) { showToast('danger', 'Не отправлено', error.message); return; }
+    CACHE.loadedAt = 0; closeModal(); showToast('success', 'Запрос данных отправлен', ''); renderWF();
+  }
+  async function closeNoRate(id) {
+    const reason = ((document.getElementById('wf-close-reason') || {}).value || '').trim();
+    const { error } = await S().rpc('close_without_rate', { p_order_id: id, p_reason: reason });
+    if (error) { showToast('danger', 'Не закрыто', error.message); return; }
+    CACHE.loadedAt = 0; closeModal(); showToast('success', 'Заявка закрыта без ставки', ''); renderWF();
+  }
   async function decide(offerId, decision) {
     // решение привязано к конкретной версии предложения; устаревшая версия будет отклонена БД
-    const { error } = await S().rpc('decide_offer', { p_offer_id: offerId, p_decision: decision });
+    const reason = ((document.getElementById('wf-clar-msg') || {}).value || '').trim();
+    if (decision === 'rejected' && reason.length < 3) { showToast('warning', 'Укажите причину отказа', 'Напишите её в поле под предложением'); return; }
+    const { error } = await S().rpc('decide_offer', { p_offer_id: offerId, p_decision: decision, p_reason: reason || null });
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     CACHE.loadedAt = 0;
     closeModal();
@@ -619,7 +677,9 @@
         `<span class="pill ${j < i ? '' : j === i ? 'pill-accent' : ''}" style="${j > i ? 'opacity:.45;' : ''}">${STAGE_L[k]}</span>`).join('') + `</div>`;
       const next = STAGES[i + 1];
       if (next && isLog() && (t.logist_id === U().id)) {
-        body += `${next === 'factory_contact' ? `<div class="form-group"><label class="form-label" for="st-note">Результат связи с фабрикой</label><input class="form-input" id="st-note"></div>` : ''}
+        const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        body += `<div class="form-group"><label class="form-label" for="st-note">Комментарий к шагу${['factory_contact', 'pickup_waiting'].includes(next) ? ' (обязательно)' : ''}</label><input class="form-input" id="st-note"></div>
+          ${['loading', 'in_transit'].includes(next) ? grid(fld('st-at', 'Дата и время', 'datetime-local', nowLocal) + fld('st-loc', 'Место')) : ''}
           <button class="btn btn-primary" style="width:100%;margin-bottom:14px;" onclick="WF.advanceShipment('${t.id}','${next}')">Далее: ${STAGE_L[next]}</button>`;
       }
     } else if (isMgr()) {
@@ -679,15 +739,32 @@
   }
   const STAGES = ['preparation', 'factory_contact', 'pickup_waiting', 'loading', 'in_transit'];
   const STAGE_L = { preparation: 'Подготовка', factory_contact: 'Связь с фабрикой', pickup_waiting: 'Ожидание забора', loading: 'Погрузка', in_transit: 'В пути' };
-  const TRIP_L = { planned: 'запланирован', loading: 'погрузка', in_transit: 'в пути' };
-  const TRIP_NEXT = { planned: 'loading', loading: 'in_transit' };
+  const TRIP_L = { preparation: 'подготовка', transport_assigned: 'транспорт назначен', loading: 'погрузка', in_transit: 'в пути' };
+  const TRIP_NEXT = { preparation: 'transport_assigned', transport_assigned: 'loading', loading: 'in_transit' };
   async function advanceShipment(tid, next) {
-    const { error } = await S().rpc('advance_shipment', { p_transport_id: tid, p_to_stage: next, p_note: fv('st-note') || null });
+    const { error } = await S().rpc('advance_shipment', { p_transport_id: tid, p_to_stage: next, p_note: fv('st-note') || null,
+      p_occurred_at: fv('st-at') ? new Date(fv('st-at')).toISOString() : null, p_location: fv('st-loc') || null });
     if (error) { showToast('danger', 'Этап не изменён', error.message); return; }
     CACHE.loadedAt = 0; await loadAll(); showToast('success', 'Этап изменён', STAGE_L[next]); openTrans(tid);
   }
-  async function advanceTrip(tid, tripId, next) {
-    const { error } = await S().rpc('advance_trip', { p_trip_id: tripId, p_to_stage: next });
+  function advanceTrip(tid, tripId, next) {
+    const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    if (next === 'transport_assigned') {
+      openModal('Назначить транспорт', grid(fld('tt-carrier', 'Перевозчик *') + fld('tt-vehicle', 'Номер машины (авто)') + fld('tt-driver', 'Водитель (авто)') +
+        fld('tt-container', 'Контейнер') + fld('tt-wagon', 'Вагон (ЖД)') + fld('tt-flight', 'Рейс (авиа)') + fld('tt-bill', 'Коносамент / накладная')) +
+        `<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">Клиент не видит перевозчика, машину и водителя.</div>
+        <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.doAdvanceTrip('${tid}','${tripId}','transport_assigned')">Назначить</button>`);
+      return;
+    }
+    openModal('Рейс: ' + TRIP_L[next], grid(fld('tt-at', 'Дата и время', 'datetime-local', nowLocal) + fld('tt-loc', 'Место') + fld('tt-src', 'Источник', 'text', '', 'placeholder="водитель, перевозчик, склад"')) +
+      `<button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.doAdvanceTrip('${tid}','${tripId}','${next}')">Сохранить</button>`);
+  }
+  async function doAdvanceTrip(tid, tripId, next) {
+    const { error } = next === 'transport_assigned'
+      ? await S().rpc('assign_trip_transport', { p_trip_id: tripId, p_carrier: fv('tt-carrier'), p_vehicle_no: fv('tt-vehicle') || null, p_driver: fv('tt-driver') || null,
+          p_container_no: fv('tt-container') || null, p_wagon_no: fv('tt-wagon') || null, p_flight_no: fv('tt-flight') || null, p_bill_no: fv('tt-bill') || null })
+      : await S().rpc('advance_trip', { p_trip_id: tripId, p_to_stage: next, p_occurred_at: fv('tt-at') ? new Date(fv('tt-at')).toISOString() : null,
+          p_location: fv('tt-loc') || null, p_source: fv('tt-src') || null });
     if (error) { showToast('danger', 'Рейс не изменён', error.message); return; }
     showToast('success', 'Рейс', TRIP_L[next]); openTrans(tid);
   }
@@ -698,34 +775,26 @@
   const sel = (id, label, map, val) => `<div class="form-group"><label class="form-label" for="${id}">${label}</label><select class="form-input" id="${id}">${Object.keys(map).map(k => `<option value="${k}" ${k === val ? 'selected' : ''}>${map[k]}</option>`).join('')}</select></div>`;
   const grid = inner => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 12px;">${inner}</div>`;
   function addTrip(tid) {
+    const t = CACHE.transports.find(x => x.id === tid) || {};
     openModal('Новый рейс', grid(
       fld('tr-name', 'Название рейса', 'text', '', 'placeholder="Машина 1"') + sel('tr-mode', 'Вид транспорта', MODE_L, 'road') +
-      fld('tr-carrier', 'Перевозчик') + fld('tr-driver', 'Водитель') +
-      fld('tr-vehicle', 'Номер машины') + fld('tr-trailer', 'Прицеп') +
-      fld('tr-container', 'Контейнер') + fld('tr-wagon', 'Вагон') +
-      fld('tr-flight', 'Рейс (авиа)') + fld('tr-bill', 'Коносамент / накладная') +
+      fld('tr-from', 'Откуда', 'text', t.origin) + fld('tr-to', 'Куда', 'text', t.destination) +
       fld('tr-dep', 'Плановая отправка', 'date') + fld('tr-arr', 'Плановое прибытие', 'date')) +
-      `<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">Клиент видит только вид транспорта, статус и плановые даты.</div>
+      `<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">Перевозчик и машина указываются следующим шагом — «Назначить транспорт».</div>
       <input type="hidden" id="tr-key" value="${crypto.randomUUID()}">
       <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.saveTrip('${tid}')">Добавить рейс</button>`);
   }
   async function saveTrip(tid) {
-    const row = { transport_id: tid, name: fv('tr-name') || 'Рейс', mode: fv('tr-mode') || null, carrier: fv('tr-carrier') || null, driver: fv('tr-driver'),
-      vehicle_no: fv('tr-vehicle') || null, trailer_no: fv('tr-trailer') || null, container_no: fv('tr-container') || null,
-      wagon_no: fv('tr-wagon') || null, flight_no: fv('tr-flight') || null, bill_no: fv('tr-bill') || null };
-    // рейс создаётся функцией БД: номер по порядку, исполнитель, повтор с тем же ключом не создаёт дубль
-    const res = await S().rpc('create_trip', { p_transport_id: tid, p_client_key: fv('tr-key'), p_mode: row.mode, p_route: null,
-      p_name: row.name, p_carrier: row.carrier, p_vehicle_no: row.vehicle_no, p_driver: row.driver, p_container_no: row.container_no, p_assignee: null });
+    // рейс создаёт назначенный логист функцией БД: номер по порядку, повтор с тем же ключом не создаёт дубль
+    const res = await S().rpc('create_trip', { p_transport_id: tid, p_client_key: fv('tr-key'), p_mode: fv('tr-mode') || null,
+      p_origin: fv('tr-from') || null, p_destination: fv('tr-to') || null, p_name: fv('tr-name') || null });
     if (res.error) { showToast('danger', 'Рейс не добавлен', res.error.message); return; }
     const created = Array.isArray(res.data) ? res.data[0] : res.data;
-    const data = { id: created.trip_id };
-    const extra = { trailer_no: row.trailer_no, wagon_no: row.wagon_no, flight_no: row.flight_no, bill_no: row.bill_no };
-    if (Object.values(extra).some(Boolean)) await S().from('trips').update(extra).eq('id', data.id);
     if (fv('tr-dep') || fv('tr-arr')) {
-      const r = await S().rpc('set_trip_plan', { p_trip_id: data.id, p_departure: fv('tr-dep') || null, p_arrival: fv('tr-arr') || null, p_reason: null });
+      const r = await S().rpc('set_trip_plan', { p_trip_id: created.trip_id, p_departure: fv('tr-dep') || null, p_arrival: fv('tr-arr') || null, p_reason: null });
       if (r.error) showToast('warning', 'Рейс добавлен без плановых дат', r.error.message);
     }
-    showToast('success', 'Рейс добавлен', row.name); openTrans(tid);
+    showToast('success', created.created ? 'Рейс добавлен' : 'Рейс уже был создан', '№' + created.sequence); openTrans(tid);
   }
   function addEvent(tid, tripId) { eventForm(tid, tripId, null); }
   async function eventForm(tid, tripId, evId) {
@@ -1025,9 +1094,12 @@
     const v = x => ((document.getElementById(x) || {}).value || '').trim();
     const carrier = v('wf-rate-carrier'), amount = Number(v('wf-rate-amount')), currency = v('wf-rate-cur').toUpperCase() || 'KZT';
     if (!carrier || !(amount > 0)) { showToast('warning', 'Укажите перевозчика и ставку', ''); return; }
-    const { error } = await S().from('rate_quotes').insert({ order_id: orderId, carrier, amount, currency });
+    const row = { order_id: orderId, carrier, amount, currency, valid_until: v('wf-rate-valid') || null,
+      transit_days: Number(v('wf-rate-days')) || null, availability: v('wf-rate-avail') || null, route: v('wf-rate-route') || null,
+      transport_mode: v('wf-rate-mode') || null, source: v('wf-rate-source') || null, comment: v('wf-rate-comment') || null };
+    const { error } = await S().from('rate_quotes').insert(row);
     if (error) { showToast('danger', 'Ставка не добавлена', error.message); return; }
-    ['wf-rate-carrier', 'wf-rate-amount'].forEach(x => { const el = document.getElementById(x); if (el) el.value = ''; });
+    ['wf-rate-carrier', 'wf-rate-amount', 'wf-rate-days', 'wf-rate-avail', 'wf-rate-source', 'wf-rate-comment'].forEach(x => { const el = document.getElementById(x); if (el) el.value = ''; });
     loadRates(orderId);
   }
   async function selectRate(orderId, rateId) {
@@ -1048,7 +1120,7 @@
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,
-    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, selectRate, saveTrip, eventForm, saveEvent, doPublish, hideUpdate, doHide, advanceShipment, advanceTrip, editRequest, saveRequest,
+    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, selectRate, saveTrip, eventForm, saveEvent, doPublish, hideUpdate, doHide, advanceShipment, advanceTrip, doAdvanceTrip, logistAccept, logistNeedData, closeNoRate, editRequest, saveRequest,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };

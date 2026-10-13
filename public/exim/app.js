@@ -1439,22 +1439,9 @@
     }
 
     async function openFound(item) {
-      if (item.kind === 'order') {
-        navigate('workflow', null, item.id);
-        if (window.WF && window.WF.getData) {
-          await window.WF.getData();
-          window.WF.open(item.id);
-        }
-        return;
-      }
-      if (item.kind === 'transport') {
-        navigate('workflow');
-        if (window.WF && window.WF.getData) {
-          await window.WF.getData();
-          window.WF.tab('transports');
-          window.WF.openTrans(item.id);
-        }
-      }
+      // единый типизированный адрес: #/order/<id> или #/shipment/<id>; Reload его восстанавливает
+      const kind = item.kind === 'transport' ? 'shipment' : item.kind === 'order' ? 'order' : null;
+      if (kind && window.__EXIM_ROUTER && window.__EXIM_ROUTER.go) await window.__EXIM_ROUTER.go(kind, item.id);
     }
 
     function reportSearch(result) {
@@ -1658,7 +1645,7 @@
 
     // ===== Persistence =====
     const KZT_RATE = 475;
-    function fmtKZT(usd) { return '₸ ' + Math.round(usd * KZT_RATE).toLocaleString('ru-RU'); }
+    function fmtKZT(usd) { if (usd == null || isNaN(usd)) return "—"; return '₸ ' + Math.round(usd * KZT_RATE).toLocaleString('ru-RU'); }
     function persist() {
       try {
         localStorage.setItem('exim-data-v2', JSON.stringify({
@@ -1673,7 +1660,8 @@
         const raw = localStorage.getItem('exim-data-v2');
         if (!raw) return;
         const d = JSON.parse(raw);
-        if (d.shipments) APP_STATE.shipments = d.shipments;
+        // при серверной сессии демо-перевозки из браузера не загружаются (Codex review п.5)
+        if (d.shipments && !window.__SUPA) APP_STATE.shipments = d.shipments;
         if (d.containers) APP_STATE.containers = d.containers;
         if (d.requests) APP_STATE.requests = d.requests;
       } catch (e) {}

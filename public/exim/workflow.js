@@ -168,7 +168,7 @@
   function openOrder(id) {
     const o = CACHE.orders.find(x => x.id === id); if (!o) return;
     if (o.status === 'draft') { openDraft(id); return; }
-    setTimeout(() => loadClar(o.id), 50);
+    setTimeout(() => { loadClar(o.id); loadFiles(o.id); }, 50);
     const f = CACHE.fin[o.id] || {};
     const st = OST[o.status] || OST.new;
     const od = overdue(o);
@@ -185,6 +185,7 @@
         <div><span style="color:var(--muted);">Тип:</span> ${esc(o.container || '—')}</div>
       </div>
       <div id="wf-clar" data-order="${o.id}"></div>
+      <div id="wf-files" data-order="${o.id}" data-ws="${o.workspace_id}" data-add="${canAttach(o) ? 1 : 0}"></div>
       ${(!isLog() && (['new', 'clarification', 'assigned', 'calculated'].includes(o.status) || (isMgr() && o.status === 'rejected')))
         ? `<button class="btn btn-secondary btn-sm" style="margin-bottom:14px;" onclick="WF.editRequest('${o.id}')">Изменить заявку</button>` : ''}`;
     if (od) body += `<div class="auth-msg" style="background:rgba(225,29,72,.07);border:1px solid rgba(225,29,72,.25);color:var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13.5px;">Расчёт просрочен — дедлайн был ${dt(o.calc_deadline)}</div>`;
@@ -362,6 +363,7 @@
       <div id="rq-form" data-key="${esc(key)}">
         ${isMgr() && !existing ? `<div class="form-group"><label class="form-label" for="wf-company">Клиентская компания *</label><select class="form-input" id="wf-company" onchange="WF.rqKeep()">${companies}</select></div>` : ''}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 12px;">${RQ_FORM.map(f => rqInput(f, data[f[0]])).join('')}</div>
+        ${existing ? `<div id="wf-files" data-order="${existing.id}" data-ws="${U().workspaceId}" data-add="1"></div>` : '<div style="color:var(--muted);font-size:12.5px;margin-bottom:8px;">Фото и документы можно добавить после сохранения черновика.</div>'}
         <div id="rq-errors" role="alert" style="color:var(--accent);font-size:13.5px;margin:4px 0 10px;"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-secondary btn-lg" style="flex:1;" onclick="WF.saveDraft(false)">Сохранить черновик</button>
@@ -369,7 +371,7 @@
         </div>
         <div style="color:var(--muted);font-size:12.5px;margin-top:8px;">* обязательны для отправки. Черновик можно сохранить с любым набором полей.</div>
       </div>`);
-    if (existing) { const box = document.getElementById('rq-form'); box.dataset.company = existing.client_company_id; }
+    if (existing) { const box = document.getElementById('rq-form'); box.dataset.company = existing.client_company_id; loadFiles(existing.id); }
   }
   async function saveDraft(submit) {
     const box = document.getElementById('rq-form'); if (!box) return;
@@ -816,6 +818,44 @@
     CACHE.loadedAt = 0;
     closeModal(); showToast('success', 'Заявка обновлена', 'Версия ' + data); renderWF();
   }
+  // ---- фото и документы к заявке (бакет request-files) ----
+  function canAttach(o) {
+    if (isLog()) return false;
+    if (isMgr()) return !['converted', 'archived'].includes(o.status);
+    return ['draft', 'new', 'clarification', 'assigned', 'calculated'].includes(o.status);
+  }
+  async function loadFiles(orderId) {
+    const box = document.getElementById('wf-files'); if (!box || box.dataset.order !== orderId) return;
+    const { data, error } = await S().from('order_attachments').select('id, kind, file_name, object_path, size_bytes, created_at').eq('order_id', orderId).order('created_at');
+    if (error) { box.innerHTML = window.EXIM_STATE ? EXIM_STATE.html(EXIM_STATE.classify(error), null, () => loadFiles(orderId)) : ''; return; }
+    const list = (data || []).map(a => `<div style="display:flex;gap:8px;align-items:center;font-size:13.5px;padding:3px 0;">
+        <span>${a.kind === 'photo' ? 'Фото' : 'Документ'}</span>
+        <a href="#" onclick="WF.openFile('${esc(a.object_path)}');return false;" style="flex:1;overflow:hidden;text-overflow:ellipsis;">${esc(a.file_name)}</a>
+        <span class="mono" style="color:var(--muted);">${Math.max(1, Math.round(a.size_bytes / 1024))} КБ</span></div>`).join('');
+    const add = box.dataset.add === '1' ? `<label class="btn btn-secondary btn-sm" style="margin-top:6px;cursor:pointer;">+ фото или документ
+        <input type="file" hidden multiple accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.xlsx,.docx" onchange="WF.uploadFiles('${orderId}', this)"></label>
+        <div style="color:var(--muted);font-size:12px;">JPG, PNG, WEBP, HEIC, PDF, XLSX, DOCX · до 20 МБ</div>` : '';
+    box.innerHTML = (list || add) ? `<div class="card" style="background:var(--bg);box-shadow:none;margin-bottom:14px;"><div style="font-weight:600;margin-bottom:6px;">Фото и документы</div>${list || '<div style="color:var(--muted);font-size:13px;">Файлов нет</div>'}${add}</div>` : '';
+  }
+  async function uploadFiles(orderId, input) {
+    const box = document.getElementById('wf-files'); if (!box) return;
+    const files = [...(input.files || [])];
+    for (const file of files) {
+      if (file.size > 20 * 1024 * 1024) { showToast('warning', 'Файл слишком большой', file.name + ' — больше 20 МБ'); continue; }
+      const safe = file.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80) || 'file';
+      const path = `${box.dataset.ws}/${orderId}/${crypto.randomUUID()}-${safe}`;
+      const up = await S().storage.from('request-files').upload(path, file, { contentType: file.type, upsert: false });
+      if (up.error) { showToast('danger', 'Файл не загружен', file.name + ': ' + up.error.message); continue; }
+      const reg = await S().rpc('register_attachment', { p_order_id: orderId, p_object_path: path, p_file_name: file.name });
+      if (reg.error) { showToast('danger', 'Файл не прикреплён', file.name + ': ' + reg.error.message); continue; }
+    }
+    loadFiles(orderId);
+  }
+  async function openFile(path) {
+    const { data, error } = await S().storage.from('request-files').createSignedUrl(path, 300);
+    if (error || !data) { showToast('danger', 'Файл недоступен', error ? error.message : ''); return; }
+    window.open(data.signedUrl, '_blank', 'noopener');
+  }
   const DIR = { to_client: 'Менеджер → клиент', to_manager: 'Клиент → менеджер' };
   async function loadClar(orderId) {
     const box = document.getElementById('wf-clar'); if (!box || box.dataset.order !== orderId) return;
@@ -875,7 +915,7 @@
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,
-    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, editRequest, saveRequest,
+    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, editRequest, saveRequest,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };

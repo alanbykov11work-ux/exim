@@ -47,35 +47,58 @@
   let CACHE = { orders: [], fin: {}, profiles: [], transports: [], tab: 'orders', openOrder: null, openTrans: null, loadedAt: 0, loading: null };
 
   // ---------- загрузка данных (кэш 15 сек + защита от параллельных запросов) ----------
+  // Ошибка любого обязательного запроса — это ошибка загрузки, а не «данных нет».
+  // Кэш и отметка свежести обновляются только после полностью успешной загрузки;
+  // повтор после ошибки действительно идёт на сервер.
+  function loadError(res, what) {
+    const e = res && res.error;
+    const err = new Error((e && e.message) || ('Не удалось загрузить: ' + what));
+    err.code = e && (e.code || e.status);
+    err.status = e && e.status;
+    err.what = what;
+    return err;
+  }
+  function must(res, what) {
+    if (!res || res.error) throw loadError(res, what);
+    if (res.data == null) throw loadError({ error: { message: 'Пустой ответ сервера: ' + what } }, what);
+    return res.data;
+  }
   async function loadAll(force) {
-    if (!force && Date.now() - CACHE.loadedAt < 15000) return;      // свежие данные — не перезагружаем
-    if (CACHE.loading) return CACHE.loading;                        // уже грузится — ждём тот же запрос
-    CACHE.loading = _loadAll().finally(() => { CACHE.loading = null; CACHE.loadedAt = Date.now(); });
+    if (!force && CACHE.loadedAt && Date.now() - CACHE.loadedAt < 15000) return;
+    if (CACHE.loading) return CACHE.loading;
+    CACHE.loading = _loadAll().then(
+      (next) => { Object.assign(CACHE, next); CACHE.loadedAt = Date.now(); CACHE.error = null; },
+      (err) => { CACHE.loadedAt = 0; CACHE.error = err; throw err; }
+    ).finally(() => { CACHE.loading = null; });
     return CACHE.loading;
   }
   async function _loadAll() {
-    const s = S(); if (!s) return;
-    const [{ data: orders }, { data: transports }] = await Promise.all([
+    const s = S();
+    if (!s) throw loadError(null, 'нет соединения с сервером');
+    const next = {};
+    const [ordersRes, transRes] = await Promise.all([
       // цена клиента, текст предложения и внутренний комментарий расчёта
       // не выбираются из таблицы напрямую: их отдаёт только orders_scoped()
       s.rpc('orders_scoped', { p_workspace_id: U().workspaceId }),
       s.from('transports').select('*').order('created_at', { ascending: false })
     ]);
-    if (isMgr()) {
-      const { data: companies } = await s.from('client_companies').select('id, name').order('name');
-      CACHE.companies = companies || [];
-    }
-    let allOrders = orders || [], allTrans = transports || [];
-    // Серверная RLS уже вернула только разрешённый scope. Локальная фильтрация
-    // остаётся лишь представлением и не используется как защита.
-    CACHE.orders = allOrders;
-    CACHE.transports = allTrans;
+    // Серверная RLS уже вернула только разрешённый scope.
+    next.orders = must(ordersRes, 'заявки');
+    next.transports = must(transRes, 'перевозки');
+    if (isMgr()) next.companies = must(await s.from('client_companies').select('id, name').order('name'), 'клиентские компании');
+    next.fin = {};
     if (isMgr() || isLog()) {
-      const ids = CACHE.orders.map(o => o.id);
-      const { data: fin } = ids.length ? await s.from('order_finance').select('*').in('order_id', ids) : { data: [] };
-      CACHE.fin = {}; (fin || []).forEach(f => CACHE.fin[f.order_id] = f);
+      const ids = next.orders.map(o => o.id);
+      const fin = ids.length ? must(await s.from('order_finance').select('*').in('order_id', ids), 'финансы заявок') : [];
+      fin.forEach(f => { next.fin[f.order_id] = f; });
     }
-    { const { data: profs } = await s.from('profiles').select('id, full_name, email, role, company, staff_code'); CACHE.profiles = profs || []; }
+    next.profiles = must(await s.from('profiles').select('id, full_name, email, role, company, staff_code'), 'профили');
+    return next;
+  }
+  function stateBox(err, retry) {
+    const st = window.EXIM_STATE;
+    if (st) return st.html(st.classify(err), err && err.code === '42501' ? null : 'Не удалось загрузить данные', retry);
+    return '<div role="alert" style="padding:40px;color:var(--muted);">Не удалось загрузить данные</div>';
   }
   const logists = () => CACHE.profiles.filter(p => ['logist','manager','admin'].includes(p.role));
   const profName = id => { const p = CACHE.profiles.find(x => x.id === id); return p ? (p.full_name || p.email) : '—'; };
@@ -103,7 +126,7 @@
     const box = document.getElementById('wf-content');
     if (!box) return;
     if (!CACHE.loadedAt) box.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);">Загрузка…</div>';
-    try { await loadAll(); } catch (e) { box.innerHTML = '<div style="padding:40px;color:var(--muted);">Не удалось загрузить данные: ' + esc(e.message) + '</div>'; return; }
+    try { await loadAll(); } catch (e) { box.innerHTML = stateBox(e, () => renderWF()); return; }
     const isAdmin = dbRole() === 'admin';
     const tabs = `
       <div class="rd-tabs" style="margin-bottom:20px;">
@@ -802,7 +825,7 @@
   async function renderWFDash() {
     const box = document.getElementById('wf-dash');
     if (!box || !S()) return;
-    try { await loadAll(); } catch (e) { return; }
+    try { await loadAll(); } catch (e) { box.innerHTML = stateBox(e, () => renderWFDash()); return; }
     const os = CACHE.orders, ts = CACHE.transports;
     const inTransit = ts.filter(t => !['delivered', 'archived'].includes(t.status)).length;
     let cards = '';

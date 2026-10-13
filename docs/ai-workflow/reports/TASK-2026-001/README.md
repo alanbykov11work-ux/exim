@@ -2,9 +2,9 @@
 
 Текущий статус: `in_progress`.
 
-Активная ветка: `task/TASK-2026-001-foundation-wave-1` от exact baseline `64017a5d46ab54eae492fc9b0e2987e214f81782`.
+Активная ветка: `task/TASK-2026-001-integrated` от exact baseline `64017a5d46ab54eae492fc9b0e2987e214f81782`.
 
-Application source импортирован. Первый attempt ещё не сдан; `submission-01.md` создаётся только после законченного проверяемого пакета.
+Сдано: `submission-01.md` + `evidence-manifest-01.md` (code head `64843fd`, 2026-10-13); `blocker-02.md` — нет тестовой среды.
 
 После разрешённой реализации ожидаются:
 

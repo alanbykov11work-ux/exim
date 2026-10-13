@@ -612,7 +612,17 @@
         <div style="height:8px;width:${t.progress}%;background:var(--accent);border-radius:4px;"></div></div>
       <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px;">Прогресс ${t.progress}%${isMgr() ? ' · Менеджер: вы' : ''}</div>`;
 
-    if (isMgr()) {
+    // Этапы перевозки Foundation Gate: двигает только назначенный логист, по одному шагу
+    if (t.stage) {
+      const i = STAGES.indexOf(t.stage);
+      body += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">` + STAGES.map((k, j) =>
+        `<span class="pill ${j < i ? '' : j === i ? 'pill-accent' : ''}" style="${j > i ? 'opacity:.45;' : ''}">${STAGE_L[k]}</span>`).join('') + `</div>`;
+      const next = STAGES[i + 1];
+      if (next && isLog() && (t.logist_id === U().id)) {
+        body += `${next === 'factory_contact' ? `<div class="form-group"><label class="form-label" for="st-note">Результат связи с фабрикой</label><input class="form-input" id="st-note"></div>` : ''}
+          <button class="btn btn-primary" style="width:100%;margin-bottom:14px;" onclick="WF.advanceShipment('${t.id}','${next}')">Далее: ${STAGE_L[next]}</button>`;
+      }
+    } else if (isMgr()) {
       body += `<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">` +
         Object.keys(TST).map(k => `<button class="rd-tab ${t.status===k?'active':''}" onclick="WF.setTStatus('${t.id}','${k}')">${TST[k].l}</button>`).join('') + `</div>`;
     }
@@ -621,8 +631,9 @@
     body += `<div style="font-weight:600;margin:8px 0 8px;">Рейсы / машины ${staff ? `<a href="#" style="font-size:13px;font-weight:500;color:var(--accent);" onclick="WF.addTrip('${t.id}');return false;">+ добавить</a>` : ''}</div>`;
     body += (trips || []).length ? (trips || []).map((tr, idx) =>
       `<div style="display:flex;justify-content:space-between;padding:8px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:14px;">
-        <span>${esc(tr.name || 'Рейс ' + (idx + 1))}${tr.mode ? ' · ' + (MODE_L[tr.mode] || tr.mode) : ''}${staff && tr.vehicle_no ? ' · ' + esc(tr.vehicle_no) : ''}${staff && tr.driver ? ' · ' + esc(tr.driver) : ''}${tr.planned_arrival ? ' · прибытие ' + esc(tr.planned_arrival) : ''}</span>
-        ${staff ? `<a href="#" style="color:var(--accent);font-size:13px;" onclick="WF.addEvent('${t.id}','${tr.id}');return false;">+ событие</a>` : ''}
+        <span>${tr.sequence ? '№' + tr.sequence + ' · ' : ''}${esc(tr.name || 'Рейс ' + (idx + 1))}${tr.trip_stage ? ' · ' + (TRIP_L[tr.trip_stage] || tr.trip_stage) : ''}${tr.route ? ' · ' + esc(tr.route) : ''}${tr.mode ? ' · ' + (MODE_L[tr.mode] || tr.mode) : ''}${staff && tr.vehicle_no ? ' · ' + esc(tr.vehicle_no) : ''}${staff && tr.driver ? ' · ' + esc(tr.driver) : ''}${tr.planned_arrival ? ' · прибытие ' + esc(tr.planned_arrival) : ''}</span>
+        <span>${staff && tr.assignee_id === U().id && TRIP_NEXT[tr.trip_stage] ? `<a href="#" style="color:var(--accent);font-size:13px;" onclick="WF.advanceTrip('${t.id}','${tr.id}','${TRIP_NEXT[tr.trip_stage]}');return false;">→ ${TRIP_L[TRIP_NEXT[tr.trip_stage]]}</a> · ` : ''}
+        ${staff ? `<a href="#" style="color:var(--accent);font-size:13px;" onclick="WF.addEvent('${t.id}','${tr.id}');return false;">+ событие</a>` : ''}</span>
       </div>`).join('') : `<div style="color:var(--muted);font-size:13.5px;margin-bottom:6px;">Рейсы ещё не добавлены</div>`;
 
     // Внутренние события (персонал)
@@ -666,6 +677,20 @@
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     await loadAll(); openTrans(id);
   }
+  const STAGES = ['preparation', 'factory_contact', 'pickup_waiting', 'loading', 'in_transit'];
+  const STAGE_L = { preparation: 'Подготовка', factory_contact: 'Связь с фабрикой', pickup_waiting: 'Ожидание забора', loading: 'Погрузка', in_transit: 'В пути' };
+  const TRIP_L = { planned: 'запланирован', loading: 'погрузка', in_transit: 'в пути' };
+  const TRIP_NEXT = { planned: 'loading', loading: 'in_transit' };
+  async function advanceShipment(tid, next) {
+    const { error } = await S().rpc('advance_shipment', { p_transport_id: tid, p_to_stage: next, p_note: fv('st-note') || null });
+    if (error) { showToast('danger', 'Этап не изменён', error.message); return; }
+    CACHE.loadedAt = 0; await loadAll(); showToast('success', 'Этап изменён', STAGE_L[next]); openTrans(tid);
+  }
+  async function advanceTrip(tid, tripId, next) {
+    const { error } = await S().rpc('advance_trip', { p_trip_id: tripId, p_to_stage: next });
+    if (error) { showToast('danger', 'Рейс не изменён', error.message); return; }
+    showToast('success', 'Рейс', TRIP_L[next]); openTrans(tid);
+  }
   const MODE_L = { road: 'Авто', rail: 'ЖД', sea: 'Море', air: 'Авиа', multimodal: 'Мультимодальная' };
   const EVT_L = { loaded: 'Погрузка', departed: 'Отправление', border: 'Граница', customs_in: 'Таможня — прибытие', customs_out: 'Таможня — выпуск', arrived: 'Прибытие', delivered: 'Доставлено', delay: 'Задержка', other: 'Другое' };
   const fv = x => ((document.getElementById(x) || {}).value || '').trim();
@@ -681,14 +706,21 @@
       fld('tr-flight', 'Рейс (авиа)') + fld('tr-bill', 'Коносамент / накладная') +
       fld('tr-dep', 'Плановая отправка', 'date') + fld('tr-arr', 'Плановое прибытие', 'date')) +
       `<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">Клиент видит только вид транспорта, статус и плановые даты.</div>
+      <input type="hidden" id="tr-key" value="${crypto.randomUUID()}">
       <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.saveTrip('${tid}')">Добавить рейс</button>`);
   }
   async function saveTrip(tid) {
     const row = { transport_id: tid, name: fv('tr-name') || 'Рейс', mode: fv('tr-mode') || null, carrier: fv('tr-carrier') || null, driver: fv('tr-driver'),
       vehicle_no: fv('tr-vehicle') || null, trailer_no: fv('tr-trailer') || null, container_no: fv('tr-container') || null,
       wagon_no: fv('tr-wagon') || null, flight_no: fv('tr-flight') || null, bill_no: fv('tr-bill') || null };
-    const { data, error } = await S().from('trips').insert(row).select('id').single();
-    if (error) { showToast('danger', 'Рейс не добавлен', error.message); return; }
+    // рейс создаётся функцией БД: номер по порядку, исполнитель, повтор с тем же ключом не создаёт дубль
+    const res = await S().rpc('create_trip', { p_transport_id: tid, p_client_key: fv('tr-key'), p_mode: row.mode, p_route: null,
+      p_name: row.name, p_carrier: row.carrier, p_vehicle_no: row.vehicle_no, p_driver: row.driver, p_container_no: row.container_no, p_assignee: null });
+    if (res.error) { showToast('danger', 'Рейс не добавлен', res.error.message); return; }
+    const created = Array.isArray(res.data) ? res.data[0] : res.data;
+    const data = { id: created.trip_id };
+    const extra = { trailer_no: row.trailer_no, wagon_no: row.wagon_no, flight_no: row.flight_no, bill_no: row.bill_no };
+    if (Object.values(extra).some(Boolean)) await S().from('trips').update(extra).eq('id', data.id);
     if (fv('tr-dep') || fv('tr-arr')) {
       const r = await S().rpc('set_trip_plan', { p_trip_id: data.id, p_departure: fv('tr-dep') || null, p_arrival: fv('tr-arr') || null, p_reason: null });
       if (r.error) showToast('warning', 'Рейс добавлен без плановых дат', r.error.message);
@@ -1016,7 +1048,7 @@
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,
-    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, selectRate, saveTrip, eventForm, saveEvent, doPublish, hideUpdate, doHide, editRequest, saveRequest,
+    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, selectRate, saveTrip, eventForm, saveEvent, doPublish, hideUpdate, doHide, advanceShipment, advanceTrip, editRequest, saveRequest,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };

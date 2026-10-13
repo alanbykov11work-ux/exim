@@ -567,8 +567,11 @@
       (isMgr() || isLog())
         ? s.from('trips').select('*').eq('transport_id', id).order('created_at')
         : s.rpc('client_trips', { p_transport_id: id }),
-      s.from('transport_updates').select('*').eq('transport_id', id).order('created_at', { ascending: false }),
-      (isMgr() || isLog()) ? s.from('trip_events').select('*').eq('transport_id', id).order('created_at', { ascending: false }) : Promise.resolve({ data: [] })
+      // персонал видит всю ленту с версиями и скрытыми записями, клиент — только действующие тексты
+      (isMgr() || isLog())
+        ? s.rpc('transport_feed_staff', { p_transport_id: id })
+        : s.from('transport_updates').select('id, public_text, occurred_at, location, version, created_at').eq('transport_id', id).order('occurred_at', { ascending: true }),
+      (isMgr() || isLog()) ? s.from('trip_events').select('*').eq('transport_id', id).eq('is_current', true).order('occurred_at', { ascending: false }) : Promise.resolve({ data: [] })
     ]);
     const events = evRes.data || [];
     const st = TST[t.status] || TST.preparing;
@@ -595,8 +598,8 @@
     body += `<div style="font-weight:600;margin:8px 0 8px;">Рейсы / машины ${staff ? `<a href="#" style="font-size:13px;font-weight:500;color:var(--accent);" onclick="WF.addTrip('${t.id}');return false;">+ добавить</a>` : ''}</div>`;
     body += (trips || []).length ? (trips || []).map((tr, idx) =>
       `<div style="display:flex;justify-content:space-between;padding:8px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:14px;">
-        <span>${esc(tr.name || 'Рейс ' + (idx + 1))}${tr.driver ? ' · ' + esc(tr.driver) : ''}</span>
-        ${staff ? `<a href="#" style="color:var(--accent);font-size:13px;" onclick="WF.addEvent('${t.id}','${tr.id}','${esc(tr.name)}');return false;">+ событие</a>` : ''}
+        <span>${esc(tr.name || 'Рейс ' + (idx + 1))}${tr.mode ? ' · ' + (MODE_L[tr.mode] || tr.mode) : ''}${staff && tr.vehicle_no ? ' · ' + esc(tr.vehicle_no) : ''}${staff && tr.driver ? ' · ' + esc(tr.driver) : ''}${tr.planned_arrival ? ' · прибытие ' + esc(tr.planned_arrival) : ''}</span>
+        ${staff ? `<a href="#" style="color:var(--accent);font-size:13px;" onclick="WF.addEvent('${t.id}','${tr.id}');return false;">+ событие</a>` : ''}
       </div>`).join('') : `<div style="color:var(--muted);font-size:13.5px;margin-bottom:6px;">Рейсы ещё не добавлены</div>`;
 
     // Внутренние события (персонал)
@@ -604,20 +607,28 @@
       body += `<div style="font-weight:600;margin:14px 0 8px;">Внутренние события <span style="font-weight:400;color:var(--muted);font-size:12.5px;">(клиент не видит)</span></div>`;
       body += events.length ? events.map(ev => `
         <div style="padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:6px;">
+          <div style="font-size:12.5px;color:var(--muted);">${EVT_L[ev.event_type] || 'Событие'} · ${dt(ev.occurred_at || ev.created_at)}${ev.location ? ' · ' + esc(ev.location) : ''}${ev.supersedes_id ? ' · исправлено' : ''}</div>
           <div style="font-size:13.5px;">${esc(ev.internal_text)}</div>
-          <div style="display:flex;justify-content:space-between;margin-top:4px;">
-            <span style="font-size:12px;color:var(--muted);">${dt(ev.created_at)}${ev.processed ? ' · опубликовано' : ''}</span>
-            ${isMgr() && !ev.processed ? `<a href="#" style="font-size:12.5px;color:var(--accent);" onclick="WF.publish('${t.id}',${ev.id});return false;">Опубликовать клиенту →</a>` : ''}
+          <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px;flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--muted);">${ev.processed ? 'опубликовано' : 'не опубликовано'}</span>
+            <span>
+              <a href="#" style="font-size:12.5px;color:var(--muted);" onclick="WF.eventForm('${t.id}','${ev.trip_id || ''}',${ev.id});return false;">Исправить</a>
+              ${isMgr() ? ` · <a href="#" style="font-size:12.5px;color:var(--accent);" onclick="WF.publish('${t.id}',${ev.id});return false;">${ev.processed ? 'Обновить публикацию' : 'Опубликовать клиенту →'}</a>` : ''}
+            </span>
           </div></div>`).join('') : `<div style="color:var(--muted);font-size:13.5px;">Событий нет</div>`;
     }
 
     // Публичная лента
     body += `<div style="font-weight:600;margin:14px 0 8px;">Лента для клиента</div>`;
-    body += (updates || []).length ? (updates || []).map(u => `
-      <div style="padding:10px 12px;border-left:3px solid var(--accent);background:var(--bg);border-radius:0 10px 10px 0;margin-bottom:6px;">
+    body += (updates || []).length ? (updates || []).map(u => {
+      const off = u.hidden || u.superseded_by;
+      return `
+      <div style="padding:10px 12px;border-left:3px solid ${off ? 'var(--border)' : 'var(--accent)'};background:var(--bg);border-radius:0 10px 10px 0;margin-bottom:6px;${off ? 'opacity:.55;' : ''}">
         <div style="font-size:14px;">${esc(u.public_text)}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:3px;">${dt(u.created_at)}</div>
-      </div>`).join('') : `<div style="color:var(--muted);font-size:13.5px;">Обновлений пока нет</div>`;
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;">${dt(u.occurred_at || u.created_at)}${u.location ? ' · ' + esc(u.location) : ''}${u.version > 1 ? ' · версия ' + u.version : ''}
+          ${u.hidden ? ' · скрыто: ' + esc(u.hidden_reason || '') : ''}${u.superseded_by ? ' · заменено новой версией' : ''}
+          ${isMgr() && !off ? ` · <a href="#" style="color:var(--muted);" onclick="WF.hideUpdate('${t.id}',${u.id});return false;">Скрыть</a>` : ''}</div>
+      </div>`; }).join('') : `<div style="color:var(--muted);font-size:13.5px;">Обновлений пока нет</div>`;
 
     // Документы + связь
     body += `<div style="display:flex;gap:10px;margin-top:16px;">
@@ -632,31 +643,80 @@
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
     await loadAll(); openTrans(id);
   }
+  const MODE_L = { road: 'Авто', rail: 'ЖД', sea: 'Море', air: 'Авиа', multimodal: 'Мультимодальная' };
+  const EVT_L = { loaded: 'Погрузка', departed: 'Отправление', border: 'Граница', customs_in: 'Таможня — прибытие', customs_out: 'Таможня — выпуск', arrived: 'Прибытие', delivered: 'Доставлено', delay: 'Задержка', other: 'Другое' };
+  const fv = x => ((document.getElementById(x) || {}).value || '').trim();
+  const fld = (id, label, type, val, extra) => `<div class="form-group"><label class="form-label" for="${id}">${label}</label><input class="form-input" id="${id}" type="${type || 'text'}" value="${esc(val || '')}" ${extra || ''}></div>`;
+  const sel = (id, label, map, val) => `<div class="form-group"><label class="form-label" for="${id}">${label}</label><select class="form-input" id="${id}">${Object.keys(map).map(k => `<option value="${k}" ${k === val ? 'selected' : ''}>${map[k]}</option>`).join('')}</select></div>`;
+  const grid = inner => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 12px;">${inner}</div>`;
   function addTrip(tid) {
-    const name = prompt('Название рейса (например: Машина 1 · DAF 123ABC01)');
-    if (!name) return;
-    const driver = prompt('Водитель (необязательно)') || '';
-    S().from('trips').insert({ transport_id: tid, name, driver }).then(({ error }) => {
-      if (error) showToast('danger', 'Ошибка', error.message);
-      else { showToast('success', 'Рейс добавлен', name); openTrans(tid); }
-    });
+    openModal('Новый рейс', grid(
+      fld('tr-name', 'Название рейса', 'text', '', 'placeholder="Машина 1"') + sel('tr-mode', 'Вид транспорта', MODE_L, 'road') +
+      fld('tr-carrier', 'Перевозчик') + fld('tr-driver', 'Водитель') +
+      fld('tr-vehicle', 'Номер машины') + fld('tr-trailer', 'Прицеп') +
+      fld('tr-container', 'Контейнер') + fld('tr-wagon', 'Вагон') +
+      fld('tr-flight', 'Рейс (авиа)') + fld('tr-bill', 'Коносамент / накладная') +
+      fld('tr-dep', 'Плановая отправка', 'date') + fld('tr-arr', 'Плановое прибытие', 'date')) +
+      `<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">Клиент видит только вид транспорта, статус и плановые даты.</div>
+      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.saveTrip('${tid}')">Добавить рейс</button>`);
   }
-  function addEvent(tid, tripId, tripName) {
-    const text = prompt('Внутреннее событие по «' + tripName + '» (видят только сотрудники):');
-    if (!text) return;
-    S().from('trip_events').insert({ transport_id: tid, trip_id: tripId, internal_text: text, created_by: U().id }).then(({ error }) => {
-      if (error) showToast('danger', 'Ошибка', error.message);
-      else { showToast('success', 'Событие добавлено', 'Менеджер увидит его и опубликует текст клиенту'); openTrans(tid); }
-    });
+  async function saveTrip(tid) {
+    const row = { transport_id: tid, name: fv('tr-name') || 'Рейс', mode: fv('tr-mode') || null, carrier: fv('tr-carrier') || null, driver: fv('tr-driver'),
+      vehicle_no: fv('tr-vehicle') || null, trailer_no: fv('tr-trailer') || null, container_no: fv('tr-container') || null,
+      wagon_no: fv('tr-wagon') || null, flight_no: fv('tr-flight') || null, bill_no: fv('tr-bill') || null };
+    const { data, error } = await S().from('trips').insert(row).select('id').single();
+    if (error) { showToast('danger', 'Рейс не добавлен', error.message); return; }
+    if (fv('tr-dep') || fv('tr-arr')) {
+      const r = await S().rpc('set_trip_plan', { p_trip_id: data.id, p_departure: fv('tr-dep') || null, p_arrival: fv('tr-arr') || null, p_reason: null });
+      if (r.error) showToast('warning', 'Рейс добавлен без плановых дат', r.error.message);
+    }
+    showToast('success', 'Рейс добавлен', row.name); openTrans(tid);
+  }
+  function addEvent(tid, tripId) { eventForm(tid, tripId, null); }
+  async function eventForm(tid, tripId, evId) {
+    let ev = {};
+    if (evId) { const r = await S().from('trip_events').select('*').eq('id', evId).single(); ev = r.data || {}; }
+    const at = ev.occurred_at ? new Date(ev.occurred_at) : new Date();
+    const local = new Date(at.getTime() - at.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    openModal(evId ? 'Исправление события' : 'Новое событие рейса', grid(
+      sel('ev-type', 'Тип', EVT_L, ev.event_type || 'other') + fld('ev-at', 'Дата и время', 'datetime-local', local) + fld('ev-loc', 'Место', 'text', ev.location)) +
+      `<div class="form-group"><label class="form-label" for="ev-text">Внутренний текст (клиент не видит)</label><textarea class="form-input" id="ev-text" rows="2">${esc(ev.internal_text || '')}</textarea></div>
+      <div class="form-group"><label class="form-label" for="ev-draft">Черновик текста для клиента</label><textarea class="form-input" id="ev-draft" rows="2">${esc(ev.client_draft || '')}</textarea></div>
+      ${evId ? '<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">Исправление создаёт новую версию, прежняя остаётся в истории.</div>' : ''}
+      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.saveEvent('${tid}','${tripId || ''}',${evId || 'null'})">${evId ? 'Сохранить исправление' : 'Добавить событие'}</button>`);
+  }
+  async function saveEvent(tid, tripId, evId) {
+    if (fv('ev-text').length < 2) { showToast('warning', 'Опишите событие', ''); return; }
+    const at = fv('ev-at') ? new Date(fv('ev-at')).toISOString() : new Date().toISOString();
+    const { error } = evId
+      ? await S().rpc('correct_trip_event', { p_event_id: evId, p_internal_text: fv('ev-text'), p_occurred_at: at, p_location: fv('ev-loc') || null, p_event_type: fv('ev-type'), p_client_draft: fv('ev-draft') || null })
+      : await S().from('trip_events').insert({ transport_id: tid, trip_id: tripId || null, internal_text: fv('ev-text'), created_by: U().id, event_type: fv('ev-type'), occurred_at: at, location: fv('ev-loc') || null, client_draft: fv('ev-draft') || null });
+    if (error) { showToast('danger', 'Событие не сохранено', error.message); return; }
+    showToast('success', evId ? 'Событие исправлено' : 'Событие добавлено', 'Менеджер опубликует текст клиенту'); openTrans(tid);
   }
   async function publish(tid, evId) {
     const { data: ev } = await S().from('trip_events').select('*').eq('id', evId).single();
-    const text = prompt('Текст для клиента:', ev ? 'По вашей перевозке: ' + ev.internal_text : '');
-    if (!text) return;
-    const e1 = (await S().from('transport_updates').insert({ transport_id: tid, source_event: evId, public_text: text, published_by: U().id })).error;
-    const e2 = (await S().from('trip_events').update({ processed: true }).eq('id', evId)).error;
-    if (e1 || e2) { showToast('danger', 'Ошибка', (e1 || e2).message); return; }
+    openModal('Публикация клиенту', `
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">Внутренний текст: ${esc(ev ? ev.internal_text : '')}</div>
+      <div class="form-group"><label class="form-label" for="pub-text">Текст, который увидит клиент</label>
+        <textarea class="form-input" id="pub-text" rows="3">${esc((ev && ev.client_draft) || '')}</textarea></div>
+      <div style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">Не указывайте водителя, перевозчика, контакты и внутренние причины.</div>
+      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.doPublish('${tid}',${evId})">Опубликовать</button>`);
+  }
+  async function doPublish(tid, evId) {
+    const { error } = await S().rpc('publish_event', { p_event_id: evId, p_public_text: fv('pub-text') });
+    if (error) { showToast('danger', 'Не опубликовано', error.message); return; }
     showToast('success', 'Опубликовано', 'Клиент увидит обновление'); openTrans(tid);
+  }
+  async function hideUpdate(tid, uid) {
+    openModal('Скрыть публикацию', `<div class="form-group"><label class="form-label" for="hide-reason">Причина (видят только сотрудники)</label>
+      <input class="form-input" id="hide-reason"></div>
+      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.doHide('${tid}',${uid})">Скрыть от клиента</button>`);
+  }
+  async function doHide(tid, uid) {
+    const { error } = await S().rpc('hide_update', { p_update_id: uid, p_reason: fv('hide-reason') });
+    if (error) { showToast('danger', 'Не скрыто', error.message); return; }
+    showToast('success', 'Скрыто', 'Запись осталась в истории'); openTrans(tid);
   }
   function transDocs(tid, ref) {
     const t = CACHE.transports.find(x => x.id === tid);
@@ -933,7 +993,7 @@
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,
-    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, selectRate, editRequest, saveRequest,
+    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, selectRate, saveTrip, eventForm, saveEvent, doPublish, hideUpdate, doHide, editRequest, saveRequest,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };

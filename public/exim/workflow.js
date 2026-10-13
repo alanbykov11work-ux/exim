@@ -274,7 +274,7 @@
       setTimeout(() => loadRates(o.id), 50);
       body += calcBlock(o, f) + `
         <div style="font-weight:600;margin:14px 0 6px;">Ставки перевозчиков</div>
-        <div id="wf-rates" data-order="${o.id}">Загрузка…</div>
+        <div id="wf-rates" data-order="${o.id}" data-select="1">Загрузка…</div>
         <div style="font-weight:600;margin:14px 0 10px;">Предложение клиенту</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div class="form-group"><label class="form-label">Маржа, ₸</label>
@@ -291,9 +291,15 @@
       body += calcBlock(o, f) + offerBlock(o, f) + `<div style="color:var(--muted);font-size:14px;margin-top:8px;">Ожидаем решение клиента.</div>`;
     } else if (o.status === 'approved') {
       body += calcBlock(o, f) + offerBlock(o, f) + `
-        <div style="display:flex;gap:10px;margin-top:12px;">
-          <button class="btn btn-primary btn-lg" style="flex:1;" onclick="WF.signContract('${o.id}')">Договор подписан ✓</button>
-        </div>`;
+        <div style="font-weight:600;margin:14px 0 8px;">Договорное основание</div>
+        <div style="color:var(--muted);font-size:13px;margin-bottom:8px;">Согласование предложения — ещё не договор. Перевозку можно создать только после фиксации основания.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 12px;">
+          <div class="form-group"><label class="form-label" for="wf-agr-kind">Основание</label>
+            <select class="form-input" id="wf-agr-kind"><option value="contract">Договор</option><option value="addendum">Допсоглашение</option><option value="signed_offer">Подписанное предложение</option><option value="invoice_paid">Оплаченный счёт</option></select></div>
+          <div class="form-group"><label class="form-label" for="wf-agr-num">Номер документа</label><input class="form-input" id="wf-agr-num"></div>
+          <div class="form-group"><label class="form-label" for="wf-agr-date">Дата подписания</label><input class="form-input" id="wf-agr-date" type="date" value="${new Date().toISOString().slice(0, 10)}"></div>
+        </div>
+        <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.signContract('${o.id}')">Зафиксировать основание</button>`;
     } else if (o.status === 'contract_signed') {
       body += calcBlock(o, f) + offerBlock(o, f) + `
         <button class="btn btn-primary btn-lg" style="width:100%;margin-top:12px;" onclick="WF.createTransport('${o.id}')">Создать перевозку из заявки</button>`;
@@ -493,30 +499,33 @@
     renderWF();
   }
   async function signContract(id) {
-    const { error } = await S().from('orders').update({ contract_signed_at: new Date().toISOString(), status: 'contract_signed' }).eq('id', id);
-    if (error) { showToast('danger', 'Ошибка', error.message); return; }
-    hist(id, 'contract_signed', {});
+    const v = x => ((document.getElementById(x) || {}).value || '').trim();
+    if (!v('wf-agr-date')) { showToast('warning', 'Укажите дату подписания', ''); return; }
+    const { error } = await S().rpc('record_agreement', { p_order_id: id, p_kind: v('wf-agr-kind') || 'contract', p_signed_on: v('wf-agr-date'), p_doc_number: v('wf-agr-num') || null });
+    if (error) { showToast('danger', 'Основание не зафиксировано', error.message); return; }
+    hist(id, 'contract_signed', { kind: v('wf-agr-kind'), number: v('wf-agr-num'), signed_on: v('wf-agr-date') });
     CACHE.loadedAt = 0;
-    closeModal(); showToast('success', 'Договор отмечен подписанным', 'Теперь можно создать перевозку'); renderWF();
+    closeModal(); showToast('success', 'Основание зафиксировано', 'Теперь можно создать перевозку'); renderWF();
   }
+  let creatingShipment = false;
   async function createTransport(id) {
-    const o = CACHE.orders.find(x => x.id === id); if (!o) return;
-    let ref = null;
+    const o = CACHE.orders.find(x => x.id === id); if (!o || creatingShipment) return;
+    creatingShipment = true;
     try {
-      const { data } = await S().rpc('gen_transport_ref', {
-        p_manager: U().id, p_logist: o.logist_id, p_direction: directionCode(o.origin, o.destination)
-      });
-      ref = data;
-    } catch (e) {}
-    // scope перевозки сервер берёт из заявки и не доверяет значениям клиента
-    const row = { ref: ref || refTr(), order_id: o.id, workspace_id: o.workspace_id, client_company_id: o.client_company_id, client_id: o.client_id, manager_id: U().id, logist_id: o.logist_id, origin: o.origin, destination: o.destination };
-    const { data, error } = await S().from('transports').insert(row).select('id, ref').single();
-    if (error) { showToast('danger', 'Ошибка', error.message); return; }
-    await S().from('orders').update({ status: 'converted' }).eq('id', id);
-    hist(id, 'converted', { transport: data.ref });
-    CACHE.loadedAt = 0;
-    closeModal(); showToast('success', 'Перевозка создана', data.ref);
-    CACHE.tab = 'trans'; renderWF();
+      let ref = null;
+      try {
+        const { data } = await S().rpc('gen_transport_ref', { p_manager: U().id, p_logist: o.logist_id, p_direction: directionCode(o.origin, o.destination) });
+        ref = data;
+      } catch (e) {}
+      // перевозку создаёт функция БД: проверяет основание, переносит данные заявки, не создаёт дубль
+      const { data, error } = await S().rpc('create_shipment', { p_order_id: id, p_ref: ref });
+      if (error) { showToast('danger', 'Перевозка не создана', error.message); return; }
+      const r = Array.isArray(data) ? data[0] : data;
+      if (r.created) hist(id, 'converted', { transport: r.ref });
+      CACHE.loadedAt = 0;
+      closeModal(); showToast('success', r.created ? 'Перевозка создана' : 'Перевозка уже существует', r.ref);
+      CACHE.tab = 'trans'; renderWF();
+    } finally { creatingShipment = false; }
   }
   async function showHistory(id) {
     const { data } = await S().from('order_history').select('*').eq('order_id', id).order('created_at', { ascending: false });
@@ -886,10 +895,14 @@
     }
     RATES[orderId] = data || [];
     const edit = box.dataset.edit === '1';
+    const sel = box.dataset.select === '1';
+    let chosen = null;
+    if (sel) { const r = await S().from('orders').select('selected_rate_id').eq('id', orderId).maybeSingle(); chosen = r.data && r.data.selected_rate_id; }
     box.innerHTML = RATES[orderId].length ? RATES[orderId].map(r => `
       <div style="display:flex;gap:8px;align-items:center;padding:6px 0;${r.status === 'withdrawn' ? 'opacity:.5;text-decoration:line-through;' : ''}">
         <span style="flex:1;">${esc(r.carrier)}</span>
         <span class="mono">${Number(r.amount).toLocaleString('ru-RU')} ${esc(r.currency)}</span>
+        ${sel && r.status === 'active' ? (r.id === chosen ? '<span class="pill pill-accent">выбрана</span>' : `<button type="button" class="btn btn-ghost btn-sm" onclick="WF.selectRate('${orderId}','${r.id}')">Выбрать</button>`) : ''}
         ${edit && r.status === 'active' ? `<button type="button" class="btn btn-ghost btn-sm" onclick="WF.withdrawRate('${r.id}','${orderId}')">Отозвать</button>` : ''}
       </div>`).join('') : '<div style="color:var(--muted);font-size:13.5px;">Ставок пока нет</div>';
   }
@@ -900,6 +913,11 @@
     const { error } = await S().from('rate_quotes').insert({ order_id: orderId, carrier, amount, currency });
     if (error) { showToast('danger', 'Ставка не добавлена', error.message); return; }
     ['wf-rate-carrier', 'wf-rate-amount'].forEach(x => { const el = document.getElementById(x); if (el) el.value = ''; });
+    loadRates(orderId);
+  }
+  async function selectRate(orderId, rateId) {
+    const { error } = await S().rpc('select_rate', { p_order_id: orderId, p_rate_id: rateId });
+    if (error) { showToast('danger', 'Ставка не выбрана', error.message); return; }
     loadRates(orderId);
   }
   async function withdrawRate(rateId, orderId) {
@@ -915,7 +933,7 @@
     getData: async () => { await loadAll(); return CACHE; },
     teamHtml: () => viewTeam(),
     effRole, dbRole,
-    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, editRequest, saveRequest,
+    open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, selectRate, editRequest, saveRequest,
     signContract, createTransport, showHistory,
     openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
   };

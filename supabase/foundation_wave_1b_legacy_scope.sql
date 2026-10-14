@@ -238,6 +238,12 @@ begin
     return new;
   end if;
 
+  -- controlled writes from SECURITY DEFINER commands (workflow, offers, revisions);
+  -- the flag is transaction-local and cannot be set through the API
+  if coalesce(current_setting('exim.trusted', true), '') = 'on' then
+    return new;
+  end if;
+
   if new.id is distinct from old.id
      or new.ref is distinct from old.ref
      or new.created_by is distinct from old.created_by

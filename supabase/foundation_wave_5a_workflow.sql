@@ -395,7 +395,7 @@ begin
   perform set_config('exim.shipment_create', 'on', true);
   perform set_config('exim.shipment_stage', 'on', true);
   perform set_config('exim.trip_write', 'on', true);
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   if p_type = 'quote_request' then
     update public.orders set status = public.wf_order_status(p_to) where id = p_object_id
       and status is distinct from public.wf_order_status(p_to);
@@ -404,7 +404,7 @@ begin
   else
     update public.trips set trip_stage = p_to where id = p_object_id;
   end if;
-  perform set_config('request.jwt.claim.sub', v_actor, true);
+  perform set_config('exim.trusted', '', true);
   perform set_config('exim.wf', '', true);
   perform set_config('exim.offer_flow', '', true);
   perform set_config('exim.request_submit', '', true);
@@ -503,11 +503,11 @@ $function$;
 
 -- draft -> manager_review on submit
 select public.wf_patch_function('public.save_request(uuid, uuid, jsonb, boolean)',
-$$    perform set_config('request.jwt.claim.sub', '', true);
+$$    perform set_config('exim.trusted', 'on', true);
     perform set_config('exim.request_submit', 'on', true);
     update public.orders o set status = 'new' where o.id = v_order.id;
     perform set_config('exim.request_submit', '', true);
-    perform set_config('request.jwt.claim.sub', v_actor::text, true);$$,
+    perform set_config('exim.trusted', '', true);$$,
 $$    perform public.wf_transition('quote_request', v_order.id, 'manager_review', null);$$);
 
 -- manager_review -> data_required (manager)
@@ -634,9 +634,9 @@ begin
     raise exception 'route, cargo, weight and volume are required' using errcode = '23502';
   end if;
   perform public.wf_transition('quote_request', p_order_id, 'sent_to_logistician', null);
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders set logist_id = p_logist, calc_deadline = p_deadline where id = p_order_id;
-  perform set_config('request.jwt.claim.sub', v_actor, true);
+  perform set_config('exim.trusted', '', true);
 end
 $function$;
 
@@ -755,9 +755,9 @@ begin
   if v_stage = 'rate_received' then
     perform public.wf_transition('quote_request', p_order_id, 'offer_preparation', null);
   end if;
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders set selected_rate_id = p_rate_id where id = p_order_id;
-  perform set_config('request.jwt.claim.sub', v_actor, true);
+  perform set_config('exim.trusted', '', true);
   insert into public.tenant_audit_events(workspace_id, actor_user_id, action, object_type, object_id, before_state, after_state)
   values (v_order.workspace_id, auth.uid(), 'order.rate_selected', 'order', p_order_id::text,
           jsonb_build_object('rate_id', v_order.selected_rate_id), jsonb_build_object('rate_id', p_rate_id));
@@ -803,10 +803,10 @@ begin
   values (p_order_id, v_order.workspace_id, v_version, p_total, upper(coalesce(p_currency, 'KZT')), p_comment,
           p_valid_until, auth.uid(), nullif(btrim(p_price_reason), ''), v_prev.total_price)
   returning id into v_id;
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders set total_price = p_total, offer_comment = p_comment, offer_sent_at = now(),
          client_decision = null, client_decision_at = null where id = p_order_id;
-  perform set_config('request.jwt.claim.sub', v_actor, true);
+  perform set_config('exim.trusted', '', true);
   return query select v_id, v_version;
 end
 $function$;
@@ -855,9 +855,9 @@ begin
   end if;
   perform public.wf_transition('quote_request', v_offer.order_id, p_decision, p_reason);
   update public.commercial_offers set status = p_decision, decided_by = auth.uid(), decided_at = now() where id = p_offer_id;
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders set client_decision = p_decision, client_decision_at = now() where id = v_offer.order_id;
-  perform set_config('request.jwt.claim.sub', v_actor, true);
+  perform set_config('exim.trusted', '', true);
 end
 $function$;
 create or replace function public.decide_offer(p_offer_id uuid, p_decision text)
@@ -902,9 +902,9 @@ begin
   values (p_order_id, v_offer, v_order.workspace_id, p_kind, btrim(p_doc_number), p_signed_on, nullif(btrim(p_comment), ''), auth.uid())
   returning id into v_id;
   perform public.wf_transition('quote_request', p_order_id, 'contract_signed', 'документ ' || btrim(p_doc_number));
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders set contract_signed_at = now() where id = p_order_id;
-  perform set_config('request.jwt.claim.sub', v_actor, true);
+  perform set_config('exim.trusted', '', true);
   insert into public.tenant_audit_events(workspace_id, actor_user_id, action, object_type, object_id, after_state)
   values (v_order.workspace_id, auth.uid(), 'order.agreement_recorded', 'order', p_order_id::text,
           jsonb_build_object('agreement_id', v_id, 'offer_id', v_offer, 'kind', p_kind));

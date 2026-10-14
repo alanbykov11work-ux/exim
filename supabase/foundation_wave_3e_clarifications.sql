@@ -41,9 +41,9 @@ declare
   v_actor text := coalesce(current_setting('request.jwt.claim.sub', true), '');
 begin
   perform set_config('exim.offer_flow', 'on', true);
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders set status = p_status where id = p_order_id;
-  perform set_config('request.jwt.claim.sub', v_actor, true);
+  perform set_config('exim.trusted', '', true);
   perform set_config('exim.offer_flow', '', true);
 end
 $function$;

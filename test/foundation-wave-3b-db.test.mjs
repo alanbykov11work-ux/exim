@@ -35,7 +35,7 @@ test("offers: versions, decision binds to the open version", async (t) => {
     create schema auth;
     create table auth.users (id uuid primary key);
     create or replace function auth.uid() returns uuid language sql stable
-      as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+      as $$ select coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''), (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'))::uuid $$;
     create table public.profiles (id uuid primary key references auth.users(id), email text,
       full_name text, company text, phone text, bin text, role text not null default 'client',
       verified boolean not null default false);

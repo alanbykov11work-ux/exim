@@ -148,7 +148,7 @@ begin
   v_status := case when v_order.logist_id is null then 'new' else 'assigned' end;
   perform set_config('exim.order_revision', 'on', true);
   -- the role guard from Wave 1b is skipped for this one controlled write
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders
      set origin = v_new->>'origin', destination = v_new->>'destination',
          transport = coalesce(v_new->>'transport', ''), cargo = coalesce(v_new->>'cargo', ''),
@@ -156,7 +156,7 @@ begin
          comment = coalesce(v_new->>'comment', ''),
          status = v_status, calc_submitted_at = null
    where id = p_order_id;
-  perform set_config('request.jwt.claim.sub', coalesce(v_actor::text, ''), true);
+  perform set_config('exim.trusted', '', true);
   perform set_config('exim.order_revision', '', true);
   return v_rev;
 end

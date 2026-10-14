@@ -57,7 +57,7 @@ begin
     raise exception 'unknown request fields' using errcode = '22023';
   end if;
   perform set_config('exim.order_revision', 'on', true);
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders o set
     origin         = case when p_data ? 'origin' then coalesce(p_data->>'origin', '') else o.origin end,
     destination    = case when p_data ? 'destination' then coalesce(p_data->>'destination', '') else o.destination end,
@@ -80,7 +80,7 @@ begin
     hs_code        = case when p_data ? 'hs_code' then nullif(btrim(p_data->>'hs_code'), '') else o.hs_code end,
     consignee      = case when p_data ? 'consignee' then nullif(btrim(p_data->>'consignee'), '') else o.consignee end
   where o.id = p_order_id;
-  perform set_config('request.jwt.claim.sub', v_actor, true);
+  perform set_config('exim.trusted', '', true);
   perform set_config('exim.order_revision', '', true);
 end
 $function$;
@@ -151,11 +151,11 @@ begin
     if cardinality(v_missing) > 0 then
       raise exception 'missing required fields: %', array_to_string(v_missing, ',') using errcode = '23502';
     end if;
-    perform set_config('request.jwt.claim.sub', '', true);
+    perform set_config('exim.trusted', 'on', true);
     perform set_config('exim.request_submit', 'on', true);
     update public.orders o set status = 'new' where o.id = v_order.id;
     perform set_config('exim.request_submit', '', true);
-    perform set_config('request.jwt.claim.sub', v_actor::text, true);
+    perform set_config('exim.trusted', '', true);
     -- the snapshot that goes to calculation is the submitted one
     update public.order_revisions r set data = (select public.order_request_data(o) from public.orders o where o.id = v_order.id)
      where r.order_id = v_order.id and r.revision = 1;
@@ -228,11 +228,11 @@ begin
   insert into public.order_revisions(order_id, workspace_id, revision, data, reason, changed_by)
   values (p_order_id, v_order.workspace_id, v_rev, v_after, p_reason, v_actor);
   update public.rate_quotes set status = 'withdrawn' where order_id = p_order_id and status = 'active';
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders
      set status = case when v_order.logist_id is null then 'new' else 'assigned' end, calc_submitted_at = null
    where id = p_order_id;
-  perform set_config('request.jwt.claim.sub', coalesce(v_actor::text, ''), true);
+  perform set_config('exim.trusted', '', true);
   return v_rev;
 end
 $function$;

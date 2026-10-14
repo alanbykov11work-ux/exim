@@ -90,9 +90,9 @@ begin
   values (p_order_id, v_offer, v_order.workspace_id, p_kind, nullif(btrim(p_doc_number), ''), p_signed_on,
           nullif(btrim(p_comment), ''), auth.uid())
   returning id into v_id;
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders set status = 'contract_signed', contract_signed_at = now() where id = p_order_id;
-  perform set_config('request.jwt.claim.sub', v_actor, true);
+  perform set_config('exim.trusted', '', true);
   insert into public.tenant_audit_events(workspace_id, actor_user_id, action, object_type, object_id, after_state)
   values (v_order.workspace_id, auth.uid(), 'order.agreement_recorded', 'order', p_order_id::text,
           jsonb_build_object('agreement_id', v_id, 'offer_id', v_offer, 'kind', p_kind));
@@ -187,9 +187,9 @@ begin
   values (v_ref, p_order_id, v_order.client_id, v_actor, v_order.logist_id, v_order.origin, v_order.destination,
           v_order.workspace_id, v_order.client_company_id, v_agr.offer_id, v_agr.id, v_order.selected_rate_id)
   returning id into v_id;
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('exim.trusted', 'on', true);
   update public.orders set status = 'converted' where id = p_order_id;
-  perform set_config('request.jwt.claim.sub', coalesce(v_actor::text, ''), true);
+  perform set_config('exim.trusted', '', true);
   perform set_config('exim.shipment_create', '', true);
   insert into public.tenant_audit_events(workspace_id, actor_user_id, action, object_type, object_id, after_state)
   values (v_order.workspace_id, v_actor, 'shipment.created', 'transport', v_id::text,

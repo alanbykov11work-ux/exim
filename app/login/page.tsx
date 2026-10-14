@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { safeReturnTarget } from "@/lib/auth/callback-url.mjs";
 import { createClient } from "@/lib/supabase/client";
 import AuthHero from "@/components/AuthHero";
 
@@ -19,6 +20,8 @@ function LoginInner() {
       : null
   );
   const callbackError = params.get("auth_error");
+  const returnTarget = () =>
+    safeReturnTarget(params.get("next"), typeof window !== "undefined" ? window.location.hash : "");
   const [loading, setLoading] = useState(false);
 
   // Если в URL пришли токены (#access_token=...) или сессия уже есть —
@@ -30,14 +33,14 @@ function LoginInner() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!stop && session) {
-        router.replace("/app");
+        router.replace(returnTarget());
         router.refresh();
       }
     }
     check();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session) {
-        router.replace("/app");
+        router.replace(returnTarget());
         router.refresh();
       }
     });
@@ -79,7 +82,7 @@ function LoginInner() {
       router.push("/verify?email=" + encodeURIComponent(email.trim()));
       return;
     }
-    router.push("/app");
+    router.push(returnTarget());
     router.refresh();
   }
 

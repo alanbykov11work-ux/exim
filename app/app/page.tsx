@@ -10,7 +10,7 @@ export default async function AppPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?next=/app");
   if (!user.email_confirmed_at) redirect("/verify");
 
   const { data: memberships, error: membershipError } = await supabase

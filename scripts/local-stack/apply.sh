@@ -22,7 +22,7 @@ FILES+=(
   supabase/foundation_wave_3c_revisions.sql supabase/foundation_wave_3d_request_form.sql supabase/foundation_wave_3e_clarifications.sql
   supabase/foundation_wave_3f_attachments.sql supabase/foundation_wave_4a_agreement_shipment.sql
   supabase/foundation_wave_4b_trips_tracking.sql supabase/foundation_wave_4c_shipment_workflow.sql
-  supabase/foundation_wave_5a_workflow.sql
+  supabase/foundation_wave_5a_workflow.sql supabase/foundation_wave_5b_audit_documents.sql
 )
 "${PSQL[@]}" -c "create table if not exists public.schema_migrations (filename text primary key, sha256 text not null, applied_at timestamptz not null default now()); revoke all on public.schema_migrations from public;"
 UNTIL="${EXIM_APPLY_UNTIL:-}"

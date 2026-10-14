@@ -7,6 +7,7 @@ set -euo pipefail
 : "${PG_ADMIN_URL:?}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PREV="${PREV_WAVE:-supabase/foundation_wave_4c_shipment_workflow.sql}"
+NEW_TABLE="${NEW_TABLE:-workflow_instances}"   # a table introduced after PREV
 TS=$(date +%s); SRC="exim_rb_src_$TS"; DST="exim_rb_restored_$TS"
 url() { echo "$PG_ADMIN_URL" | sed -E "s#/postgres(\?|$)#/$1\1#"; }
 export EXIM_TARGET=non-production PGOPTIONS='-c client_min_messages=warning'
@@ -40,6 +41,6 @@ SQL
 echo "legacy order history: $(echo "$LEGACY" | tail -1)"
 pg_restore --no-owner --dbname="$(url $DST)" "/tmp/$SRC.dump"
 RESTORED="$(snapshot "$(url $DST)")"
-WF=$(psql "$(url $DST)" -tAc "select to_regclass('public.workflow_instances') is null")
-echo "before:   $BEFORE"; echo "after:    $AFTER"; echo "restored: $RESTORED"; echo "workflow tables absent after restore: $WF"
-[ "$BEFORE" = "$RESTORED" ] && [ "$WF" = "t" ] && echo "$LEGACY" | tail -1 | grep -q "manager_review>sent_to_logistician" && echo "ROLLBACK REHEARSAL PASS" || { echo "ROLLBACK REHEARSAL FAIL"; exit 1; }
+WF=$(psql "$(url $DST)" -tAc "select to_regclass('public.$NEW_TABLE') is null")
+echo "before:   $BEFORE"; echo "after:    $AFTER"; echo "restored: $RESTORED"; echo "$NEW_TABLE absent after restore: $WF"
+[ "$BEFORE" = "$RESTORED" ] && [ "$WF" = "t" ] && echo "$LEGACY" | tail -1 | grep -q "sent_to_logistician" && echo "ROLLBACK REHEARSAL PASS" || { echo "ROLLBACK REHEARSAL FAIL"; exit 1; }

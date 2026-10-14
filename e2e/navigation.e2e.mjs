@@ -1,4 +1,5 @@
-// Browser E2E for navigation, states and layout (Codex review 2026-10-08).
+// MOCK browser E2E (fake Supabase in harness.html): navigation, states, layout, forms, regression.
+// Results are MOCK evidence, not hosted acceptance.
 // Fake Supabase in harness.html; no network, no real database.
 // Run: PW=$(npm root -g)/playwright node e2e/navigation.e2e.mjs   (or with a local playwright install)
 import { createRequire } from 'module';
@@ -81,6 +82,40 @@ for (const w of [360, 375, 390]) {
   }
 }
 check('no page-level overflow at 360/375/390 (dashboard, inbox, workflow, shipments)', !Object.keys(over).length, JSON.stringify(over));
+
+// forms and dialogs at phone widths (MOCK)
+const modalOver = {};
+for (const w of [360, 375, 390]) {
+  await page.setViewportSize({ width: w, height: 800 });
+  await open('#/workflow');
+  for (const [name, js] of [
+    ['new request form', "WF.newOrder()"],
+    ['order card', "WF.open('" + O1 + "')"],
+    ['shipment card', "WF.openTrans('" + T1 + "')"],
+    ['trip form', "WF.addTrip('" + T1 + "')"],
+    ['documents', "WF.transDocs('" + T1 + "','01-02-10-0007')"],
+    ['partner basis', "WF.partnerForm('" + O1 + "')"],
+  ]) {
+    await page.evaluate(js); await page.waitForTimeout(300);
+    const m = await page.evaluate(() => { const b = document.getElementById('modal-body'); const box = document.querySelector('#modal .modal, #modal > div') || b;
+      return { doc: document.documentElement.scrollWidth, body: b ? b.scrollWidth - b.clientWidth : 0, open: document.getElementById('modal').classList.contains('active'),
+        inputs: [...(b ? b.querySelectorAll('input:not([type=hidden]),select,textarea,button') : [])].filter(e => e.getBoundingClientRect().right > window.innerWidth + 1).length }; });
+    if (!m.open || m.doc > w || m.body > 1 || m.inputs) modalOver[w + ' ' + name] = m;
+    await page.evaluate(() => window.closeModal && window.closeModal());
+  }
+}
+check('MOCK forms/dialogs open and fit 360/375/390 (no overflow, controls on screen)', !Object.keys(modalOver).length, JSON.stringify(modalOver));
+// regression of CRM / tasks / chats / profile screens (MOCK backend)
+await page.setViewportSize({ width: 1280, height: 900 });
+errors.length = 0;
+const reg = {};
+for (const h of ['#/crm', '#/tasks', '#/chats', '#/profile', '#/analytics']) {
+  await open(h);
+  const st = await page.evaluate(() => ({ active: !!document.querySelector('.page.active'), id: (document.querySelector('.page.active') || {}).id, text: ((document.querySelector('.page.active') || {}).innerText || '').length }));
+  if (!st.active || st.id !== 'page-' + h.slice(2) || st.text < 10) reg[h] = st;
+}
+check('MOCK CRM/tasks/chats/profile/analytics open without page errors', !Object.keys(reg).length && !errors.length, JSON.stringify(reg) + errors.join(';'));
+
 await browser.close(); srv.close();
 console.log(JSON.stringify(results, null, 1));
 console.log('PASS', results.filter(r => r.ok).length, 'of', results.length);

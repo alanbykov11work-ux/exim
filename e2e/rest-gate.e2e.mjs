@@ -19,8 +19,9 @@ function jwt(sub) {
   const h = b64({ alg: 'HS256', typ: 'JWT' }), p = b64({ sub, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 });
   return `${h}.${p}.${crypto.createHmac('sha256', SECRET).update(`${h}.${p}`).digest('base64url')}`;
 }
-async function call(user, method, path, body) {
+async function call(user, method, path, body, profile) {
   const headers = { 'content-type': 'application/json', accept: 'application/json', prefer: 'return=representation' };
+  if (profile) { headers['content-profile'] = profile; headers['accept-profile'] = profile; }
   if (user) headers.authorization = 'Bearer ' + jwt(U[user]);
   const r = await fetch(REST + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   const text = await r.text(); let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
@@ -140,6 +141,44 @@ r = await call('adminA', 'GET', `/tenant_audit_events?select=action&workspace_id
 check('tenant admin A sees own audit (shipment created)', r.status === 200 && r.data.some(x => x.action === 'shipment.created'), r);
 r = await call('adminA', 'PATCH', `/workflow_template_versions?version=eq.1`, { status: 'retired' });
 check('tenant admin cannot change workflow templates', denied(r) || (Array.isArray(r.data) && r.data.length === 0), r);
+
+
+// ---- Documents (CL-006, LG-005), partner basis (LG-003, D-047), audit (AC-007) ----
+check('partner basis needs selected rate and comes after contract basis', true);
+r = await rpc('logist', 'record_partner_basis', { p_order_id: order, p_partner: 'ТОО Перевозчик', p_terms: 'оплата 50/50', p_doc_ref: 'ПД-7', p_signed_on: new Date().toISOString().slice(0, 10) });
+check('assigned logistician records partner basis after the client contract basis', r.status === 200, r);
+r = await call('clientA1', 'GET', `/partner_bases?order_id=eq.${order}`);
+check('client does not see partner basis', r.status === 200 && r.data.length === 0, r);
+const doc = one(await rpc('logist', 'create_document', { p_object_type: 'shipment', p_object_id: tr, p_doc_type: 'invoice' }));
+check('logistician creates a factory document (internal by default)', typeof doc === 'string', doc);
+check('client cannot create documents', denied(await rpc('clientA1', 'create_document', { p_object_type: 'shipment', p_object_id: tr, p_doc_type: 'invoice' })));
+const path1 = `${WSA}/${doc}/${crypto.randomUUID()}-invoice.pdf`;
+r = await call('logist', 'POST', '/objects', { bucket_id: 'gate-documents', name: path1, metadata: { mimetype: 'application/pdf', size: 2048, eTag: 'e1' } }, 'storage');
+check('staff uploads into the document folder (storage policy)', r.status === 201, r);
+r = await call('clientA1', 'POST', '/objects', { bucket_id: 'gate-documents', name: `${WSA}/${doc}/x.pdf`, metadata: { mimetype: 'application/pdf', size: 1 } }, 'storage');
+check('client cannot upload into a document folder', denied(r), r);
+check('version 1 registered', one(await rpc('logist', 'add_document_version', { p_document_id: doc, p_object_path: path1, p_file_name: 'invoice.pdf' })) === 1);
+r = await call('clientA1', 'GET', `/documents?id=eq.${doc}&select=id`); check('internal document invisible to client by direct id', r.status === 200 && r.data.length === 0, r);
+r = await call('clientA1', 'GET', `/objects?name=eq.${encodeURIComponent(path1)}&select=name`, undefined, 'storage');
+check('internal file invisible to client by direct path', r.status === 200 && r.data.length === 0, r);
+check('logistician cannot publish to client', denied(await rpc('logist', 'set_document_visibility', { p_document_id: doc, p_client_visible: true, p_reason: 'для клиента' })));
+check('publication needs a reason', denied(await rpc('manager', 'set_document_visibility', { p_document_id: doc, p_client_visible: true, p_reason: '' })));
+check('manager publishes the document', (await rpc('manager', 'set_document_visibility', { p_document_id: doc, p_client_visible: true, p_reason: 'инвойс для клиента' })).status < 300);
+r = await call('clientA1', 'GET', `/documents?id=eq.${doc}&select=id,doc_type,current_version`); check('client sees the published document', r.status === 200 && r.data.length === 1, r);
+r = await call('clientA1', 'GET', `/documents?id=eq.${doc}&select=created_by`); check('client cannot read staff fields of a document', denied(r), r);
+const path2 = `${WSA}/${doc}/${crypto.randomUUID()}-invoice-v2.pdf`;
+await call('logist', 'POST', '/objects', { bucket_id: 'gate-documents', name: path2, metadata: { mimetype: 'application/pdf', size: 4096, eTag: 'e2' } }, 'storage');
+check('replacement creates version 2', one(await rpc('logist', 'add_document_version', { p_document_id: doc, p_object_path: path2, p_file_name: 'invoice-v2.pdf' })) === 2);
+r = await call('clientA1', 'GET', `/document_versions?document_id=eq.${doc}&select=version&order=version`);
+check('both versions kept', r.status === 200 && r.data.map(x => x.version).join(',') === '1,2', r);
+for (const u of ['clientA2', 'clientB1']) {
+  r = await call(u, 'GET', `/documents?id=eq.${doc}&select=id`); check(`${u} cannot see the published document of A1`, r.status === 200 && r.data.length === 0, r);
+  r = await call(u, 'GET', `/objects?name=eq.${encodeURIComponent(path2)}&select=name`, undefined, 'storage'); check(`${u} cannot fetch the file of A1`, r.status === 200 && r.data.length === 0, r);
+}
+r = await call('adminA', 'GET', `/tenant_audit_events?select=action&workspace_id=eq.${WSA}`);
+const acts = new Set((r.data || []).map(x => x.action));
+for (const a of ['workflow.transition', 'rate_quote.created', 'offer.created', 'tracking.published', 'document.created', 'document.uploaded', 'document.replaced', 'document.published', 'order.partner_basis_recorded'])
+  check('audit contains ' + a, acts.has(a), [...acts]);
 
 for (const x of results) console.log((x.ok ? 'ok   ' : 'FAIL ') + x.name + (x.ok ? '' : '  ' + x.info));
 console.log(`PASS ${results.filter(x => x.ok).length} of ${results.length}`);

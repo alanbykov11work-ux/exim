@@ -1,0 +1,103 @@
+[
+ {
+  "name": "boot without errors",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "search order -> #/order/<id>",
+  "ok": true,
+  "info": "http://localhost:8765/e2e/harness.html#/order/10000000-0000-4000-8000-0000000000a1"
+ },
+ {
+  "name": "order card open after search",
+  "ok": true,
+  "info": "Заявка ZK-261013-AAAAA\n×\nZK-261013-AAAAA\nУрумчи → Алматы\nНовая\nГруз: текстиль\nВе"
+ },
+ {
+  "name": "reload restores order card",
+  "ok": true,
+  "info": "http://localhost:8765/e2e/harness.html#/order/10000000-0000-4000-8000-0000000000a1"
+ },
+ {
+  "name": "search shipment -> #/shipment/<id>",
+  "ok": true,
+  "info": "http://localhost:8765/e2e/harness.html#/shipment/10000000-0000-4000-8000-0000000000b1"
+ },
+ {
+  "name": "shipment card open",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "reload restores shipment card",
+  "ok": true,
+  "info": "http://localhost:8765/e2e/harness.html#/shipment/10000000-0000-4000-8000-0000000000b1"
+ },
+ {
+  "name": "Back -> previous address",
+  "ok": true,
+  "info": "http://localhost:8765/e2e/harness.html#/order/10000000-0000-4000-8000-0000000000a1"
+ },
+ {
+  "name": "Forward -> shipment again",
+  "ok": true,
+  "info": "http://localhost:8765/e2e/harness.html#/shipment/10000000-0000-4000-8000-0000000000b1"
+ },
+ {
+  "name": "unknown object -> \"Не найдено\"",
+  "ok": true,
+  "info": "⚠\nНе найдено\nРаздел или объект не существует либо недоступен | ⚠ | Не найдено\nРаздел или объект не существует либо недоступен | Не найдено | Раздел или объект не существует либо недоступен / ⚠\nНе найдено\nРаздел или объект не существует либо недоступен | ⚠ | Не найдено\nРаздел или объект не существует либо недоступен | Не найдено | Раздел или объект не существует либо недоступен"
+ },
+ {
+  "name": "malformed hash: boots, no exception, lands on dashboard",
+  "ok": true,
+  "info": " http://localhost:8765/e2e/harness.html#/dashboard"
+ },
+ {
+  "name": "inbox shows server rows (not empty state)",
+  "ok": true,
+  "info": "rows=1"
+ },
+ {
+  "name": "inbox counter equals list; conversion not invented",
+  "ok": true,
+  "info": "1,—"
+ },
+ {
+  "name": "click in list -> #/order/<id>",
+  "ok": true,
+  "info": "http://localhost:8765/e2e/harness.html#/order/10000000-0000-4000-8000-0000000000a1"
+ },
+ {
+  "name": "server error -> error state with Retry, not empty",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "Retry reloads from server and shows rows",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "shipments list from server only (no demo EX-*)",
+  "ok": true,
+  "info": "01-02-10-0007\nУрумчи → Алматы\nВ пути\nПрогресс\n50%\n 2026-10-11\n —"
+ },
+ {
+  "name": "no page-level overflow at 360/375/390 (dashboard, inbox, workflow, shipments)",
+  "ok": true,
+  "info": "{}"
+ },
+ {
+  "name": "MOCK forms/dialogs open and fit 360/375/390 (no overflow, controls on screen)",
+  "ok": true,
+  "info": "{}"
+ },
+ {
+  "name": "MOCK CRM/tasks/chats/profile/analytics open without page errors",
+  "ok": true,
+  "info": "{}"
+ }
+]
+PASS 20 of 20

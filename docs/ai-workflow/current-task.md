@@ -10,10 +10,10 @@
 | Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` |
 | Application baseline SHA | `64017a5d46ab54eae492fc9b0e2987e214f81782` |
 | Implementation branch | `task/TASK-2026-001-integrated` (все незамерженные волны Wave 1 → 4b + исправления review 2026-10-08) |
-| Code head | `64843fd3371488c50f5262f3fddebf362e343a69` |
-| Target environment | Локальная source-only проверка (PGlite, браузер с подменённым backend); отдельный Preview/test Supabase `BLOCKED` — blocker-02 |
+| Code head | `c066519b16cca90c2a71fb200922df7bc928d814` (submission-02) |
+| Target environment | Локальный non-production стек (PostgreSQL 16 + PostgREST 12, `scripts/local-stack/`), PGlite, MOCK-браузер; hosted Preview/test Supabase `BLOCKED` — blocker-02 |
 | Production deploy | `FORBIDDEN` |
-| Последняя сдача | `reports/TASK-2026-001/submission-01.md`, `evidence-manifest-01.md` |
+| Последняя сдача | `reports/TASK-2026-001/submission-02.md`, `evidence-manifest-02.md` (PR #8) |
 | Следующее действие | Независимый review PR интегрированной ветки; интегратор создаёт test Supabase + Preview (blocker-02); затем hosted-проверки семью аккаунтами |
 
 ## Текущая граница выполнения
@@ -35,6 +35,7 @@
 |---|---|---|---|---|
 | 2026-09-17 | `awaiting_application_source` | `in_progress` | Codex task curator по прямому поручению владельца | Source подтверждён на exact baseline; разрешена локальная реализация без production |
 | 2026-10-13 | ветка `foundation-wave-1`, Next 14, действие «Codex реализует Wave 1» | ветка `task/TASK-2026-001-integrated` @ `64843fd`, Next 15.5.27, submission-01 | Claude task curator (Issue #5) | Исправления по Codex review 2026-10-08, одна интегрированная сдача; статус остаётся `in_progress` |
+| 2026-10-14 | head `64843fd`, submission-01 | head `c066519`: 4c/5a влиты fast-forward, исправление `exim.trusted`, Wave 5b, локальный стек; submission-02 | Claude task curator (Issue #5, поручение 2026-10-13) | Статус остаётся `in_progress`; приёмки нет |
 
 ## Обязательное чтение перед TASK-2026-001
 

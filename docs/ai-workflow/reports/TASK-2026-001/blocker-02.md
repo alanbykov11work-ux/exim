@@ -35,3 +35,8 @@ Production Supabase и `exim-super-app.vercel.app` не используются
 ## Что выполняется сразу после устранения
 
 Применение миграций по порядку из submission-01 на пустой тестовой базе, репетиция rollback, семь сессий с UI/direct URL/REST/RPC, Storage-вложения, Realtime, E2E на Preview.
+
+## Обновление 2026-10-14
+
+Частичная замена без hosted: локальный стек PostgreSQL 16 + PostgREST 12 в облачной песочнице (`scripts/local-stack/`) — полный apply chain, семь синтетических аккаунтов, REST/RPC-проверки, репетиция отката. Docker-образы Supabase (GoTrue, Storage API, Realtime) из песочницы недоступны (registry закрыт прокси), поэтому вход по паролю, Storage API и Realtime остаются `BLOCKED`.
+Действие интегратора не изменилось: отдельный тестовый Supabase-проект и Vercel Preview этой ветки; production не использовать.

@@ -305,6 +305,7 @@
       } else {
         body += calcBlock(o, f) + `<div style="color:var(--muted);font-size:13.5px;margin-top:10px;">Расчёт отправлен ${dt(o.calc_submitted_at)}.</div>`;
       }
+      if (['contract_signed', 'converted'].includes(o.status)) body += `<button class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="WF.partnerForm('${o.id}')">Основание с партнёром (выбранная ставка)</button>`;
       openModal('Заявка ' + o.ref, body);
       return;
     }
@@ -366,6 +367,7 @@
       body += calcBlock(o, f) + offerBlock(o, f);
     }
     body += `<div style="margin-top:14px;"><a href="#" style="font-size:13px;color:var(--muted);" onclick="WF.showHistory('${o.id}');return false;">История изменений →</a></div>`;
+    if (['contract_signed', 'converted'].includes(o.status)) body += `<button class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="WF.partnerForm('${o.id}')">Основание с партнёром (выбранная ставка)</button>`;
     openModal('Заявка ' + o.ref, body);
   }
 
@@ -842,37 +844,77 @@
     if (error) { showToast('danger', 'Не скрыто', error.message); return; }
     showToast('success', 'Скрыто', 'Запись осталась в истории'); openTrans(tid);
   }
+  // ---- Документы перевозки (CL-006, LG-005): версии, внутренние по умолчанию, публикация менеджером ----
+  const DOC_L = { invoice: 'Инвойс', packing_list: 'Упаковочный лист', certificate: 'Сертификат', permit: 'Разрешительный документ' };
   function transDocs(tid, ref) {
-    const t = CACHE.transports.find(x => x.id === tid);
-    openModal('Документы · ' + ref, `
-      <div id="wf-docs-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-        <div style="color:var(--muted);font-size:13.5px;">Загрузка…</div></div>
-      <button class="btn btn-secondary" style="width:100%;" onclick="WF.addTransDoc('${tid}','${esc(ref)}')">+ Прикрепить документ</button>`);
-    renderTransDocs(ref);
+    openModal('Документы · ' + ref, `<div id="wf-docs-list" data-t="${tid}" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">Загрузка…</div>
+      ${(isMgr() || isLog()) ? grid(sel('doc-type', 'Тип документа', DOC_L, 'invoice')) +
+        `<button class="btn btn-secondary" style="width:100%;" onclick="WF.addTransDoc('${tid}')">+ Новый документ (внутренний)</button>` : ''}`);
+    renderTransDocs(tid);
   }
-  async function renderTransDocs(ref) {
-    const box = document.getElementById('wf-docs-list'); if (!box || !window.__EXIM_DOCS) return;
-    try {
-      const files = await window.__EXIM_DOCS.list('transports/' + ref);
-      box.innerHTML = files.length ? files.map(f =>
-        `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;">
-          <span class="pill pill-info">${(f.name.split('.').pop() || '').toUpperCase().slice(0,5)}</span>
-          <span style="flex:1;font-size:14px;">${esc(f.name.replace(/^\d+_/, ''))}</span>
-          <a href="#" style="font-size:13px;color:var(--accent);" onclick="window.__EXIM_DOCS.signedUrl('transports/${ref}/${f.name}').then(u=>window.open(u,'_blank'));return false;">Скачать</a>
-        </div>`).join('') : '<div style="color:var(--muted);font-size:13.5px;">Документов нет</div>';
-    } catch (e) { box.innerHTML = '<div style="color:var(--muted);font-size:13.5px;">Не удалось загрузить</div>'; }
+  async function renderTransDocs(tid) {
+    const box = document.getElementById('wf-docs-list'); if (!box || box.dataset.t !== tid) return;
+    const [d, v] = await Promise.all([
+      S().from('documents').select('id, doc_type, client_visible, current_version, created_at').eq('object_type', 'shipment').eq('object_id', tid).order('created_at'),
+      S().from('document_versions').select('id, document_id, version, object_path, file_name, created_at').order('version', { ascending: false })
+    ]);
+    if (d.error || v.error) { box.innerHTML = window.EXIM_STATE ? EXIM_STATE.html(EXIM_STATE.classify(d.error || v.error), null, () => renderTransDocs(tid)) : ''; return; }
+    const vers = {}; (v.data || []).forEach(x => { (vers[x.document_id] = vers[x.document_id] || []).push(x); });
+    box.innerHTML = (d.data || []).length ? d.data.map(doc => {
+      const list = vers[doc.id] || [], last = list[0];
+      return `<div style="padding:10px 12px;border:1px solid var(--border);border-radius:10px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <b>${DOC_L[doc.doc_type] || esc(doc.doc_type)}</b>
+          <span class="pill ${doc.client_visible ? 'pill-accent' : ''}">${doc.client_visible ? 'опубликован клиенту' : 'внутренний'}</span></div>
+        <div style="font-size:13px;color:var(--muted);margin:4px 0;">${last ? 'версия ' + last.version + ' · ' + esc(last.file_name) + ' · ' + dt(last.created_at) : 'файл не загружен'}${list.length > 1 ? ' · всего версий: ' + list.length : ''}</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:13px;">
+          ${last ? `<a href="#" onclick="WF.openDoc('${esc(last.object_path)}');return false;">Скачать</a>` : ''}
+          ${(isMgr() || isLog()) ? `<label style="cursor:pointer;color:var(--accent);">${last ? 'Заменить (новая версия)' : 'Загрузить файл'}<input type="file" hidden onchange="WF.uploadDocVersion('${tid}','${doc.id}',this)"></label>` : ''}
+          ${isMgr() && last ? `<a href="#" onclick="WF.toggleDoc('${tid}','${doc.id}',${!doc.client_visible});return false;">${doc.client_visible ? 'Снять с публикации' : 'Опубликовать клиенту'}</a>` : ''}
+        </div></div>`;
+    }).join('') : '<div style="color:var(--muted);font-size:13.5px;">Документов нет</div>';
   }
-  function addTransDoc(tid, ref) {
-    const picker = document.createElement('input');
-    picker.type = 'file';
-    picker.onchange = async () => {
-      if (!picker.files.length) return;
-      try { await window.__EXIM_DOCS.upload(picker.files[0], 'transports/' + ref); showToast('success', 'Загружено', picker.files[0].name); renderTransDocs(ref); }
-      catch (e) { showToast('danger', 'Ошибка загрузки', e.message || ''); }
-    };
-    picker.click();
+  async function addTransDoc(tid) {
+    const { error } = await S().rpc('create_document', { p_object_type: 'shipment', p_object_id: tid, p_doc_type: fv('doc-type') || 'invoice' });
+    if (error) { showToast('danger', 'Документ не создан', error.message); return; }
+    renderTransDocs(tid);
   }
-
+  async function uploadDocVersion(tid, docId, input) {
+    const file = input.files && input.files[0]; if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { showToast('warning', 'Файл больше 20 МБ', ''); return; }
+    const path = `${U().workspaceId}/${docId}/${crypto.randomUUID()}-${file.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80)}`;
+    const up = await S().storage.from('gate-documents').upload(path, file, { contentType: file.type, upsert: false });
+    if (up.error) { showToast('danger', 'Файл не загружен', up.error.message); return; }
+    const { error } = await S().rpc('add_document_version', { p_document_id: docId, p_object_path: path, p_file_name: file.name });
+    if (error) { showToast('danger', 'Версия не сохранена', error.message); return; }
+    renderTransDocs(tid);
+  }
+  async function toggleDoc(tid, docId, visible) {
+    openModal('Публикация документа', `<div class="form-group"><label class="form-label" for="doc-reason">Причина (видят сотрудники)</label><input class="form-input" id="doc-reason"></div>
+      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.doToggleDoc('${tid}','${docId}',${visible})">${visible ? 'Опубликовать клиенту' : 'Снять с публикации'}</button>`);
+  }
+  async function doToggleDoc(tid, docId, visible) {
+    const { error } = await S().rpc('set_document_visibility', { p_document_id: docId, p_client_visible: visible, p_reason: fv('doc-reason') });
+    if (error) { showToast('danger', 'Не изменено', error.message); return; }
+    const t = CACHE.transports.find(x => x.id === tid); transDocs(tid, t ? t.ref : '');
+  }
+  async function openDoc(path) {
+    const { data, error } = await S().storage.from('gate-documents').createSignedUrl(path, 300);
+    if (error || !data) { showToast('danger', 'Файл недоступен', error ? error.message : ''); return; }
+    window.open(data.signedUrl, '_blank', 'noopener');
+  }
+  // ---- Партнёрское основание выбранной ставки (LG-003, D-047) ----
+  function partnerForm(orderId) {
+    openModal('Основание с партнёром', grid(fld('pb-partner', 'Партнёр *') + fld('pb-doc', 'Документ / ссылка *') + fld('pb-date', 'Дата подписания *', 'date', new Date().toISOString().slice(0, 10))) +
+      `<div class="form-group"><label class="form-label" for="pb-terms">Условия перевозки и оплаты *</label><textarea class="form-input" id="pb-terms" rows="2"></textarea></div>
+      <div style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">Фиксируется после договорного основания с клиентом и относится к выбранной ставке. Клиент не видит.</div>
+      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="WF.savePartner('${orderId}')">Сохранить</button>`);
+  }
+  async function savePartner(orderId) {
+    const { error } = await S().rpc('record_partner_basis', { p_order_id: orderId, p_partner: fv('pb-partner'), p_terms: fv('pb-terms'), p_doc_ref: fv('pb-doc'), p_signed_on: fv('pb-date') });
+    if (error) { showToast('danger', 'Не сохранено', error.message); return; }
+    closeModal(); showToast('success', 'Основание с партнёром сохранено', '');
+  }
 
   // ============================================================
   // КОМАНДА (только админ): роли пользователей
@@ -1122,7 +1164,7 @@
     effRole, dbRole,
     open: openOrder, newOrder: () => newOrder(), createOrder: () => saveDraft(true), assign, submitCalc, sendOffer, decide, addRate, withdrawRate, saveDraft, rqKeep, returnClar, answerClar, askOffer, uploadFiles, openFile, selectRate, saveTrip, eventForm, saveEvent, doPublish, hideUpdate, doHide, advanceShipment, advanceTrip, doAdvanceTrip, logistAccept, logistNeedData, closeNoRate, editRequest, saveRequest,
     signContract, createTransport, showHistory,
-    openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, render: renderWF
+    openTrans, setTStatus, addTrip, addEvent, publish, transDocs, addTransDoc, uploadDocVersion, toggleDoc, doToggleDoc, openDoc, partnerForm, savePartner, render: renderWF
   };
   // при смене роли просмотра — обновить данные на текущей странице
   ['switchRole', 'switchRoleTo'].forEach(function (fn) {

@@ -31,3 +31,7 @@ on conflict do nothing;
 insert into public.module_entitlements(workspace_id, module_code, enabled) values
  ('c0000000-0000-4000-8000-000000000001','private_os',true),('c0000000-0000-4000-8000-000000000002','private_os',true)
 on conflict do nothing;
+-- display data used by the UI lists (authority stays in workspace_memberships)
+update public.profiles set role = 'manager', full_name = 'Менеджер A' where id = 'a0000000-0000-4000-8000-000000000003';
+update public.profiles set role = 'logist', full_name = 'Логист A' where id = 'a0000000-0000-4000-8000-000000000004';
+update public.profiles set full_name = 'Клиент A1', company = 'Company A1' where id = 'a0000000-0000-4000-8000-000000000001';

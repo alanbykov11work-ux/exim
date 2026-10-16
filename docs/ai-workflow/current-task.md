@@ -10,10 +10,10 @@
 | Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` |
 | Application baseline SHA | `64017a5d46ab54eae492fc9b0e2987e214f81782` |
 | Implementation branch | `task/TASK-2026-001-integrated` (все незамерженные волны Wave 1 → 4b + исправления review 2026-10-08) |
-| Code head | `c066519b16cca90c2a71fb200922df7bc928d814` (submission-02) |
+| Code head | `563b23cae890e417825be8d6676a3744ea0f61cd` (submission-03) |
 | Target environment | Локальный non-production стек (PostgreSQL 16 + PostgREST 12, `scripts/local-stack/`), PGlite, MOCK-браузер; hosted Preview/test Supabase `BLOCKED` — blocker-02 |
 | Production deploy | `FORBIDDEN` |
-| Последняя сдача | `reports/TASK-2026-001/submission-02.md`, `evidence-manifest-02.md` (PR #8) |
+| Последняя сдача | `reports/TASK-2026-001/submission-03.md`, `evidence-manifest-03.md` (PR #8) |
 | Следующее действие | Независимый review PR интегрированной ветки; интегратор создаёт test Supabase + Preview (blocker-02); затем hosted-проверки семью аккаунтами |
 
 ## Текущая граница выполнения
@@ -53,3 +53,4 @@
 - `docs/07-mvp/foundation-gate.md`;
 - `docs/10-implementation/current-state.md`;
 - `docs/10-implementation/audits/2026-09-04-super-app-live-audit.md`.
+| 2026-10-16 | submission-02 @ `c066519` | submission-03 @ `563b23c`: сквозной сценарий настоящего SPA на локальном backend | Claude task curator | Статус `in_progress`; приёмки нет |

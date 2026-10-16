@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = clientIp(req);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // ВРЕМЕННО ОТКЛЮЧЕНО: лимит регистраций не применяется
   const ENFORCE_REG_LIMIT = false;

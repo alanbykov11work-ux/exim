@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import AuthHero from "@/components/AuthHero";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [p1, setP1] = useState("");
   const [p2, setP2] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -20,9 +18,14 @@ export default function ResetPasswordPage() {
     if (p1 !== p2) return setMsg("Пароли не совпадают.");
 
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password: p1 });
+    const response = await fetch("/auth/password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: p1 }),
+    });
+    const result = await response.json().catch(() => ({}));
     setBusy(false);
-    if (error) return setMsg(error.message);
+    if (!response.ok) return setMsg(result.error || "Не удалось сохранить пароль.");
     router.push("/app");
     router.refresh();
   }

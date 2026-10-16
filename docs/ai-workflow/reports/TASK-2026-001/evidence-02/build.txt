@@ -1,0 +1,45 @@
+
+> exim-super-app@1.0.0 build
+> next build
+
+   ▲ Next.js 15.5.27
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 1473ms
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/15) ...
+   Generating static pages (3/15) 
+   Generating static pages (7/15) 
+   Generating static pages (11/15) 
+ ✓ Generating static pages (15/15)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ƒ /                                      135 B         103 kB
+├ ○ /_not-found                            994 B         104 kB
+├ ○ /access-required                       162 B         106 kB
+├ ƒ /app                                 2.46 kB         170 kB
+├ ƒ /auth/callback                         135 B         103 kB
+├ ƒ /auth/password-login                   135 B         103 kB
+├ ƒ /auth/password-register                135 B         103 kB
+├ ƒ /auth/password-reset                   135 B         103 kB
+├ ○ /confirmed                            1.6 kB         104 kB
+├ ○ /forgot-password                      1.6 kB         172 kB
+├ ○ /login                                2.6 kB         173 kB
+├ ○ /register                            2.17 kB         108 kB
+├ ○ /reset-password                      1.63 kB         104 kB
+└ ○ /verify                              2.57 kB         170 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/255-ce8c7c75002f810b.js       46.5 kB
+  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
+  └ other shared chunks (total)          1.92 kB
+
+
+ƒ Middleware                             91.2 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+exit 0

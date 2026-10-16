@@ -47,6 +47,9 @@ export async function middleware(request: NextRequest) {
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
+    // return target: only the app itself; the in-app #address survives the redirect in the browser
+    if (pathname === "/app") url.searchParams.set("next", "/app");
     return NextResponse.redirect(url);
   }
 

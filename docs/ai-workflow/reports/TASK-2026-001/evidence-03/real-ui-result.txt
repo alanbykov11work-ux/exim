@@ -1,0 +1,19 @@
+ok   client submits via the form; double click creates one request
+ok   client A2 opening A1 order URL gets "Не найдено"
+ok   order card restored from URL for manager
+ok   manager assigned the logistician
+ok   two RateQuotes saved separately; stage still rate_search
+ok   logistician completes rate search from the UI
+ok   manager sends offer v1 from the UI
+ok   client sees offer version 1 after reload
+ok   approving a stale version is refused
+ok   after reload client sees version 2
+ok   client approves version 2
+ok   one Shipment after a double click
+ok   shipment card restored from URL
+ok   shipment reached in_transit through the UI
+ok   client sees both published updates
+ok   client card has no driver, vehicle, carrier or internal text
+ok   outage shows error with Retry; Retry recovers
+ok   no uncaught page errors
+PASS 18 of 18

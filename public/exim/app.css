@@ -3142,3 +3142,20 @@ body[data-role="client"] .app-nav a[data-nav="crm"] { display: none; }
 .ch-ticks { font-size: 11px; letter-spacing: -2px; color: var(--muted); }
 .ch-ticks.read { color: #2563EB; }
 body[data-theme="dark"] .ch-attach-btn { border-color: rgba(255,255,255,0.14); color: rgba(255,255,255,0.6); }
+
+
+/* ===== Wave 2 — мобильные 360/375/390 px без горизонтальной прокрутки страницы
+   (REQ-005, AC-TASK-010). Широкое содержимое прокручивается внутри своего
+   контейнера, а не тянет за собой всю страницу. ===== */
+.dash-quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 28px; }
+.dash-quick .dash-link { min-width: 0; }
+@media (max-width: 760px) {
+  .dash-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rd-tabs { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .rd-tabs::-webkit-scrollbar { display: none; }
+  .rd-tab { flex: 0 0 auto; }
+  .page table { display: block; max-width: 100%; overflow-x: auto; }
+}
+@media (max-width: 420px) {
+  .dash-quick { grid-template-columns: minmax(0, 1fr); }
+}

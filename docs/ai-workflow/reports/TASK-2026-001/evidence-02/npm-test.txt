@@ -1,0 +1,327 @@
+
+> exim-super-app@1.0.0 test
+> node --test
+
+TAP version 13
+# Subtest: safeInternalPath keeps only same-origin paths
+ok 1 - safeInternalPath keeps only same-origin paths
+  ---
+  duration_ms: 0.416417
+  type: 'test'
+  ...
+# Subtest: callback failure is explicit and remains on the EXIM origin
+ok 2 - callback failure is explicit and remains on the EXIM origin
+  ---
+  duration_ms: 0.097709
+  type: 'test'
+  ...
+# Subtest: return target after login stays inside the app (no open redirect)
+ok 3 - return target after login stays inside the app (no open redirect)
+  ---
+  duration_ms: 0.263333
+  type: 'test'
+  ...
+# Subtest: counters group every non-draft workflow status exactly once
+ok 4 - counters group every non-draft workflow status exactly once
+  ---
+  duration_ms: 1.242958
+  type: 'test'
+  ...
+# Subtest: closed and successful outcomes are counted separately; no invented conversion or plan metric
+ok 5 - closed and successful outcomes are counted separately; no invented conversion or plan metric
+  ---
+  duration_ms: 1.126125
+  type: 'test'
+  ...
+# Subtest: state html escapes text and offers retry only when given
+ok 6 - state html escapes text and offers retry only when given
+  ---
+  duration_ms: 0.482459
+  type: 'test'
+  ...
+# Subtest: Wave 1 SQL executes and isolates tenants and client companies
+ok 7 - Wave 1 SQL executes and isolates tenants and client companies
+  ---
+  duration_ms: 1960.773501
+  type: 'test'
+  ...
+# Subtest: tenant admin RPC is scoped, audited and cannot remove the last admin
+ok 8 - tenant admin RPC is scoped, audited and cannot remove the last admin
+  ---
+  duration_ms: 882.237251
+  type: 'test'
+  ...
+# Subtest: Wave 1 migration defines every tenant security primitive with RLS
+ok 9 - Wave 1 migration defines every tenant security primitive with RLS
+  ---
+  duration_ms: 2.706458
+  type: 'test'
+  ...
+# Subtest: client-company access and module access are enforced server-side
+ok 10 - client-company access and module access are enforced server-side
+  ---
+  duration_ms: 0.864458
+  type: 'test'
+  ...
+# Subtest: organization capabilities are multi-valued and inert
+ok 11 - organization capabilities are multi-valued and inert
+  ---
+  duration_ms: 0.645917
+  type: 'test'
+  ...
+# Subtest: orders are isolated by workspace, client company and assignment
+ok 12 - orders are isolated by workspace, client company and assignment
+  ---
+  duration_ms: 2051.288335
+  type: 'test'
+  ...
+# Subtest: a client cannot create an order outside the own scope
+ok 13 - a client cannot create an order outside the own scope
+  ---
+  duration_ms: 1019.555708
+  type: 'test'
+  ...
+# Subtest: price, cost and internal comment are absent from forbidden payloads
+ok 14 - price, cost and internal comment are absent from forbidden payloads
+  ---
+  duration_ms: 1060.68275
+  type: 'test'
+  ...
+# Subtest: price is hidden from the client until the offer is sent
+ok 15 - price is hidden from the client until the offer is sent
+  ---
+  duration_ms: 937.653667
+  type: 'test'
+  ...
+# Subtest: order scope is immutable and history is append-only
+ok 16 - order scope is immutable and history is append-only
+  ---
+  duration_ms: 1315.671125
+  type: 'test'
+  ...
+# Subtest: transports inherit scope; trips and internal events stay staff-only
+ok 17 - transports inherit scope; trips and internal events stay staff-only
+  ---
+  duration_ms: 1035.283583
+  type: 'test'
+  ...
+# Subtest: a disabled Private OS entitlement blocks writes and keeps the data
+ok 18 - a disabled Private OS entitlement blocks writes and keeps the data
+  ---
+  duration_ms: 859.589709
+  type: 'test'
+  ...
+# Subtest: legacy rows are invisible until an owner assigns their scope
+ok 19 - legacy rows are invisible until an owner assigns their scope
+  ---
+  duration_ms: 1273.649418
+  type: 'test'
+  ...
+# Subtest: Wave 1b scopes every legacy Private OS table and resets its privileges
+ok 20 - Wave 1b scopes every legacy Private OS table and resets its privileges
+  ---
+  duration_ms: 5.35775
+  type: 'test'
+  ...
+# Subtest: Wave 1b never grants delete and never exposes sensitive order columns
+ok 21 - Wave 1b never grants delete and never exposes sensitive order columns
+  ---
+  duration_ms: 1.074542
+  type: 'test'
+  ...
+# Subtest: Wave 1b infers no scope and keeps the backfill off the API surface
+ok 22 - Wave 1b infers no scope and keeps the backfill off the API surface
+  ---
+  duration_ms: 0.874459
+  type: 'test'
+  ...
+# Subtest: CRM is visible to the sales staff of one workspace only
+ok 23 - CRM is visible to the sales staff of one workspace only
+  ---
+  duration_ms: 2139.283042
+  type: 'test'
+  ...
+# Subtest: tasks are internal: clients are excluded and assignment stays in the workspace
+ok 24 - tasks are internal: clients are excluded and assignment stays in the workspace
+  ---
+  duration_ms: 1056.388625
+  type: 'test'
+  ...
+# Subtest: chats are created through one command and never cross a boundary
+ok 25 - chats are created through one command and never cross a boundary
+  ---
+  duration_ms: 1092.339042
+  type: 'test'
+  ...
+# Subtest: the directory never shows one client to another
+ok 26 - the directory never shows one client to another
+  ---
+  duration_ms: 1397.093876
+  type: 'test'
+  ...
+# Subtest: the client decision command obeys the row policy and the guard
+ok 27 - the client decision command obeys the row policy and the guard
+  ---
+  duration_ms: 973.472042
+  type: 'test'
+  ...
+# Subtest: legacy leads stay hidden until an owner assigns the workspace
+ok 28 - legacy leads stay hidden until an owner assigns the workspace
+  ---
+  duration_ms: 1037.791334
+  type: 'test'
+  ...
+# Subtest: Wave 1c enables RLS and resets privileges on every work table
+ok 29 - Wave 1c enables RLS and resets privileges on every work table
+  ---
+  duration_ms: 3.440375
+  type: 'test'
+  ...
+# Subtest: Wave 1c grants no delete and no direct chat or membership writes
+ok 30 - Wave 1c grants no delete and no direct chat or membership writes
+  ---
+  duration_ms: 1.104083
+  type: 'test'
+  ...
+# Subtest: Wave 1c keeps the backfill off the API surface and infers nothing
+ok 31 - Wave 1c keeps the backfill off the API surface and infers nothing
+  ---
+  duration_ms: 3.262709
+  type: 'test'
+  ...
+# Subtest: search by number finds only what the caller may open
+ok 32 - search by number finds only what the caller may open
+  ---
+  duration_ms: 1507.553959
+  type: 'test'
+  ...
+# Subtest: rate quotes: staff only, withdraw only, two rates before calculated
+ok 33 - rate quotes: staff only, withdraw only, two rates before calculated
+  ---
+  duration_ms: 1822.144835
+  type: 'test'
+  ...
+# Subtest: offers: versions, decision binds to the open version
+ok 34 - offers: versions, decision binds to the open version
+  ---
+  duration_ms: 1509.377792
+  type: 'test'
+  ...
+# Subtest: revisions: every request change is kept and invalidates rates
+ok 35 - revisions: every request change is kept and invalidates rates
+  ---
+  duration_ms: 1671.912918
+  type: 'test'
+  ...
+# Subtest: REQ-001 request: draft, required fields, idempotent submit, scope
+ok 36 - REQ-001 request: draft, required fields, idempotent submit, scope
+  ---
+  duration_ms: 1744.221376
+  type: 'test'
+  ...
+# Subtest: clarifications both ways and price change reasons
+ok 37 - clarifications both ways and price change reasons
+  ---
+  duration_ms: 1817.362335
+  type: 'test'
+  ...
+# Subtest: request attachments: folder scope, owner, type from storage
+ok 38 - request attachments: folder scope, owner, type from storage
+  ---
+  duration_ms: 1811.692543
+  type: 'test'
+  ...
+# Subtest: REQ-006: rate choice, agreement gate, exactly one shipment
+ok 39 - REQ-006: rate choice, agreement gate, exactly one shipment
+  ---
+  duration_ms: 1752.607793
+  type: 'test'
+  ...
+# Subtest: REQ-002: trips, versioned events, explicit publication
+ok 40 - REQ-002: trips, versioned events, explicit publication
+  ---
+  duration_ms: 1896.423918
+  type: 'test'
+  ...
+# Subtest: AC-016/017: shipment and trip Gate workflow, actors, idempotency
+ok 41 - AC-016/017: shipment and trip Gate workflow, actors, idempotency
+  ---
+  duration_ms: 1944.265251
+  type: 'test'
+  ...
+# Subtest: REQ-003 Gate workflow: pinned versions, only Gate transitions, actors, history, client labels
+ok 42 - REQ-003 Gate workflow: pinned versions, only Gate transitions, actors, history, client labels
+  ---
+  duration_ms: 1880.533251
+  type: 'test'
+  ...
+# Subtest: sections and typed object addresses round-trip
+ok 43 - sections and typed object addresses round-trip
+  ---
+  duration_ms: 9.902625
+  type: 'test'
+  ...
+# Subtest: malformed, hostile or over-long addresses are invalid and never throw
+ok 44 - malformed, hostile or over-long addresses are invalid and never throw
+  ---
+  duration_ms: 3.510625
+  type: 'test'
+  ...
+# Subtest: load error is surfaced, not turned into empty data: 401 unauthorized
+ok 45 - load error is surfaced, not turned into empty data: 401 unauthorized
+  ---
+  duration_ms: 8.997417
+  type: 'test'
+  ...
+# Subtest: load error is surfaced, not turned into empty data: 403 forbidden
+ok 46 - load error is surfaced, not turned into empty data: 403 forbidden
+  ---
+  duration_ms: 2.961958
+  type: 'test'
+  ...
+# Subtest: load error is surfaced, not turned into empty data: 500 server error
+ok 47 - load error is surfaced, not turned into empty data: 500 server error
+  ---
+  duration_ms: 2.057667
+  type: 'test'
+  ...
+# Subtest: load error is surfaced, not turned into empty data: null data without error
+ok 48 - load error is surfaced, not turned into empty data: null data without error
+  ---
+  duration_ms: 3.123458
+  type: 'test'
+  ...
+# Subtest: network failure (thrown / rejected promise) is surfaced
+ok 49 - network failure (thrown / rejected promise) is surfaced
+  ---
+  duration_ms: 4.703541
+  type: 'test'
+  ...
+# Subtest: a failure in any required query fails the whole load (no partial success)
+ok 50 - a failure in any required query fails the whole load (no partial success)
+  ---
+  duration_ms: 7.354667
+  type: 'test'
+  ...
+# Subtest: retry after an error really goes to the server and then succeeds
+ok 51 - retry after an error really goes to the server and then succeeds
+  ---
+  duration_ms: 2.136167
+  type: 'test'
+  ...
+# Subtest: an empty list is returned only after a successful server answer
+ok 52 - an empty list is returned only after a successful server answer
+  ---
+  duration_ms: 1.708459
+  type: 'test'
+  ...
+1..52
+# tests 52
+# suites 0
+# pass 52
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 13650.677464
+exit 0

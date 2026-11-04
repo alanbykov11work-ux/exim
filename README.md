@@ -4,7 +4,7 @@
 
 ## Текущее состояние
 
-Исходный код приложения импортирован в `main` (Next.js 15 + React 18 + TypeScript + Supabase; SPA в `public/exim/`). Активная задача — `TASK-2026-001` Foundation Gate, статус `in_progress`; работа идёт в ветке `task/TASK-2026-001-integrated` (draft PR #8). Актуальное состояние, последняя сдача и что заблокировано — в [`docs/ai-workflow/current-task.md`](docs/ai-workflow/current-task.md).
+Исходный код приложения импортирован в `main` (Next.js 15 + React 18 + TypeScript + Supabase; SPA в `public/exim/`). Активная задача — `TASK-2026-001` Foundation Gate, статус `in_progress`; работа идёт в ветке `task/TASK-2026-001-integrated` (draft PR #8). Актуальное состояние, последняя сдача и что заблокировано — в [`docs/ai-workflow/current-task.md`](docs/ai-workflow/current-task.md). Как установить, проверить и применить миграции — [`ЗАПУСК.md`](ЗАПУСК.md).
 
 Claude не создаёт новый проект, не выбирает новый стек и не восстанавливает приложение по публичному сайту.
 
@@ -13,7 +13,7 @@ Claude не создаёт новый проект, не выбирает нов
 - Этот репозиторий — единственное место для кода приложения, миграций и application-тестов.
 - [morgiyt/exim-product-os](https://github.com/morgiyt/exim-product-os) — источник продуктовых требований, решений, экранов, статусов и acceptance criteria.
 - Закреплённая версия Product OS и активная задача указаны в [`docs/ai-workflow/product-os.lock.json`](docs/ai-workflow/product-os.lock.json).
-- Текущий разрешённый этап указан в [`docs/ai-workflow/current-task.md`](docs/ai-workflow/current-task.md).
+- Текущий разрешённый этап указан в [`docs/ai-workflow/current-task.md`](docs/ai-workflow/current-task.md). Как установить, проверить и применить миграции — [`ЗАПУСК.md`](ЗАПУСК.md).
 
 ## Быстрый старт
 

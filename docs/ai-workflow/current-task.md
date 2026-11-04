@@ -9,7 +9,7 @@
 | Current product task | `TASK-2026-001` — Foundation Gate |
 | Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` |
 | Application baseline SHA | `64017a5d46ab54eae492fc9b0e2987e214f81782` |
-| Implementation branch | `task/TASK-2026-001-integrated` (все незамерженные волны Wave 1 → 4b + исправления review 2026-10-08) |
+| Implementation branch | `task/TASK-2026-001-integrated` (все незамерженные волны Foundation Gate: Wave 1–5b, исправления review 2026-10-08 и 2026-11-04) |
 | Code head | `563b23cae890e417825be8d6676a3744ea0f61cd` (submission-03) |
 | Target environment | Локальный non-production стек (PostgreSQL 16 + PostgREST 12, `scripts/local-stack/`), PGlite, MOCK-браузер; hosted Preview/test Supabase `BLOCKED` — blocker-02 |
 | Production deploy | `FORBIDDEN` |
@@ -18,7 +18,15 @@
 
 ## Текущая граница выполнения
 
-Исходный код, manifests и SQL импортированы в `main`. Реализацию ведёт Claude по поручению владельца (Issue #5); Codex выполняет независимый review. Локальная работа и проверки разрешены; production, реальные данные и секреты запрещены. Применение SQL, семь role/scope accounts и hosted Preview остаются `BLOCKED`, пока не подтверждён отдельный test Supabase project.
+Исходный код, manifests и SQL импортированы в `main`. Реализацию ведёт Claude по поручению владельца (Issue #5, PR #8); Codex выполняет независимый review. Production, реальные данные и секреты запрещены.
+
+Что уже проверено и как (подробно — submission-03):
+
+- `PASS_BY_IMPLEMENTER (local)`: полный apply chain на одноразовой PostgreSQL 16, семь синтетических аккаунтов и два tenant через REST/RPC (PostgREST 12), настоящий SPA с supabase-js в браузере против той же локальной БД, репетиция отката через резервную копию;
+- `PASS_BY_IMPLEMENTER (MOCK)`: браузер с подменённым backend (360/375/390, состояния, регрессия экранов);
+- `BLOCKED` (blocker-02): настоящий `/app` с middleware и server bootstrap, GoTrue login/callback/logout/recovery, Storage API, Realtime, внешний Preview с exact SHA.
+
+Это результаты исполнителя, а не приёмка.
 
 ## Проверенный preflight
 

@@ -4,13 +4,11 @@
 # public.schema_migrations; an applied file is skipped, a changed applied file stops the run.
 # Usage: DATABASE_URL=postgres://... scripts/local-stack/apply.sh [--with-compat]
 # EXIM_APPLY_UNTIL=supabase/<file>.sql stops after that file (used by the rollback rehearsal).
-# Refuses to run unless EXIM_TARGET=non-production is set explicitly.
+# Refuses to run unless scripts/local-stack/preflight.sh accepts the target (see there).
 set -euo pipefail
-: "${DATABASE_URL:?DATABASE_URL is required}"
-if [ "${EXIM_TARGET:-}" != "non-production" ]; then
-  echo "Refusing: set EXIM_TARGET=non-production for a disposable/test database" >&2; exit 2
-fi
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+. "$ROOT/scripts/local-stack/preflight.sh"
+exim_preflight work "${DATABASE_URL:-}"
 PSQL=(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -X)
 FILES=()
 [ "${1:-}" = "--with-compat" ] && FILES+=(scripts/local-stack/00-supabase-compat.sql)

@@ -4,12 +4,15 @@
 # Requires: PostgreSQL 16 server reachable as PG_ADMIN_URL (superuser on a throwaway instance),
 #           PostgREST 12 binary as POSTGREST_BIN, Node 20+. Nothing here talks to a hosted project.
 set -euo pipefail
-: "${PG_ADMIN_URL:?}"; : "${POSTGREST_BIN:?}"
 DB="${EXIM_LOCAL_DB:-exim_local_$(date +%s)}"
+printf "%s" "$DB" | grep -Eq "^exim_[a-z0-9_]{1,50}$" || { echo "Refusing: EXIM_LOCAL_DB must be exim_<suffix>" >&2; exit 2; }
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+. "$ROOT/scripts/local-stack/preflight.sh"
+exim_preflight admin "${PG_ADMIN_URL:-}"
+: "${POSTGREST_BIN:?POSTGREST_BIN is required}"
 psql "$PG_ADMIN_URL" -qc "create database $DB"
 URL="$(echo "$PG_ADMIN_URL" | sed -E "s#/postgres(\?|$)#/$DB\1#")"
-export DATABASE_URL="$URL" EXIM_TARGET=non-production PGOPTIONS='-c client_min_messages=warning'
+export DATABASE_URL="$URL" PGOPTIONS='-c client_min_messages=warning'
 "$ROOT/scripts/local-stack/apply.sh" --with-compat
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -qf "$ROOT/scripts/local-stack/fixtures.sql"
 SECRET="$(head -c 48 /dev/urandom | base64 | tr -d '/+=' | head -c 48)"

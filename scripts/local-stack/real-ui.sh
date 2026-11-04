@@ -2,11 +2,13 @@
 # Real SPA + real supabase-js in Chromium against a fresh disposable database (PostgreSQL 16 + PostgREST 12).
 # Requires PG_ADMIN_URL (throwaway instance), POSTGREST_BIN, Playwright (PW), supabase-js UMD (SUPABASE_UMD or node_modules).
 set -euo pipefail
-: "${PG_ADMIN_URL:?}"; : "${POSTGREST_BIN:?}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+. "$ROOT/scripts/local-stack/preflight.sh"
+exim_preflight admin "${PG_ADMIN_URL:-}"
+: "${POSTGREST_BIN:?POSTGREST_BIN is required}"
 DB="exim_ui_$(date +%s)"
 psql "$PG_ADMIN_URL" -qc "create database $DB"
-export DATABASE_URL="$(echo "$PG_ADMIN_URL" | sed -E "s#/postgres(\?|$)#/$DB\1#")" EXIM_TARGET=non-production PGOPTIONS='-c client_min_messages=warning'
+export DATABASE_URL="$(echo "$PG_ADMIN_URL" | sed -E "s#/postgres(\?|$)#/$DB\1#")" PGOPTIONS='-c client_min_messages=warning'
 "$ROOT/scripts/local-stack/apply.sh" --with-compat > /dev/null
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -qf "$ROOT/scripts/local-stack/fixtures.sql"
 SECRET="$(head -c 48 /dev/urandom | base64 | tr -d '/+=' | head -c 48)"; PORT="${REST_PORT:-3013}"; CONF="$(mktemp)"

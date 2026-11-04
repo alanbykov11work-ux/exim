@@ -4,13 +4,15 @@
 # compare. Rollback of a released migration = restore from the pre-migration backup;
 # disabling guard triggers is NOT considered a rollback.
 set -euo pipefail
-: "${PG_ADMIN_URL:?}"
+
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+. "$ROOT/scripts/local-stack/preflight.sh"
+exim_preflight admin "${PG_ADMIN_URL:-}"
 PREV="${PREV_WAVE:-supabase/foundation_wave_4c_shipment_workflow.sql}"
 NEW_TABLE="${NEW_TABLE:-workflow_instances}"   # a table introduced after PREV
 TS=$(date +%s); SRC="exim_rb_src_$TS"; DST="exim_rb_restored_$TS"
 url() { echo "$PG_ADMIN_URL" | sed -E "s#/postgres(\?|$)#/$1\1#"; }
-export EXIM_TARGET=non-production PGOPTIONS='-c client_min_messages=warning'
+export PGOPTIONS='-c client_min_messages=warning'
 psql "$PG_ADMIN_URL" -qc "create database $SRC" -c "create database $DST"
 DATABASE_URL="$(url $SRC)" EXIM_APPLY_UNTIL="$PREV" "$ROOT/scripts/local-stack/apply.sh" --with-compat > /dev/null
 psql "$(url $SRC)" -v ON_ERROR_STOP=1 -qf "$ROOT/scripts/local-stack/fixtures.sql"

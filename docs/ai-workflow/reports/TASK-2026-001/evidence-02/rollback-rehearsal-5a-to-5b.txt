@@ -1,0 +1,26 @@
+psql:<tree>/scripts/local-stack/00-supabase-compat.sql:47: WARNING:  wal_level is insufficient to publish logical changes
+HINT:  Set wal_level to "logical" before creating subscriptions.
+psql:<tree>/supabase/foundation_wave_1.sql:5: WARNING:  there is already a transaction in progress
+WARNING:  there is no transaction in progress
+psql:<tree>/supabase/foundation_wave_1b_legacy_scope.sql:13: WARNING:  there is already a transaction in progress
+WARNING:  there is no transaction in progress
+psql:<tree>/supabase/foundation_wave_1c_work_scope.sql:11: WARNING:  there is already a transaction in progress
+WARNING:  there is no transaction in progress
+psql:<tree>/supabase/foundation_wave_2_shell.sql:10: WARNING:  there is already a transaction in progress
+WARNING:  there is no transaction in progress
+              set_config              
+--------------------------------------
+ a0000000-0000-4000-8000-000000000001
+(1 row)
+
+               order_id               |       ref       | status | missing 
+--------------------------------------+-----------------+--------+---------
+ fda7a223-ff9e-4195-b0f5-38795b1d7846 | ZK-261014-64257 | new    | {}
+(1 row)
+
+legacy order history: ->draft,draft>manager_review,manager_review>sent_to_logistician
+before:   memberships=7 migrations=23 order_revisions=1 orders=1
+after:    memberships=7 migrations=24 order_revisions=1 orders=1
+restored: memberships=7 migrations=23 order_revisions=1 orders=1
+documents absent after restore: t
+ROLLBACK REHEARSAL PASS

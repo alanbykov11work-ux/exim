@@ -4,22 +4,46 @@
 |---|---|
 | Application repository | `https://github.com/alanbykov11work-ux/exim.git` |
 | Base branch | `main` |
-| Состояние репозитория | Координационный каркас; application source отсутствует |
-| Статус | `awaiting_application_source` |
-| Planned product task | `TASK-2026-001` — Foundation Gate |
+| Состояние репозитория | Application source импортирован и проверен локально |
+| Статус | `in_progress` |
+| Current product task | `TASK-2026-001` — Foundation Gate |
 | Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` |
-| Application baseline SHA | `SET_AFTER_APPLICATION_SOURCE_IMPORT` |
-| Target environment | `SET_AFTER_DEPLOYMENT_LINKAGE_VERIFICATION` |
+| Application baseline SHA | `64017a5d46ab54eae492fc9b0e2987e214f81782` |
+| Implementation branch | `task/TASK-2026-001-integrated` (все незамерженные волны Foundation Gate: Wave 1–5b, исправления review 2026-10-08 и 2026-11-04) |
+| Code head | `563b23cae890e417825be8d6676a3744ea0f61cd` (submission-03) |
+| Target environment | Локальный non-production стек (PostgreSQL 16 + PostgREST 12, `scripts/local-stack/`), PGlite, MOCK-браузер; hosted Preview/test Supabase `BLOCKED` — blocker-02 |
 | Production deploy | `FORBIDDEN` |
-| Следующее действие | Интегратор загружает существующий Super App через `import/application-baseline` PR |
+| Последняя сдача | `reports/TASK-2026-001/submission-03.md`, `evidence-manifest-03.md` (PR #8) |
+| Следующее действие | Независимый review PR интегрированной ветки; интегратор создаёт test Supabase + Preview (blocker-02); затем hosted-проверки семью аккаунтами |
 
-## Почему реализация ещё не стартует
+## Текущая граница выполнения
 
-В GitHub пока нет исходного кода работающего приложения, manifests, миграций и тестов. Без них нельзя доказать стек, baseline и связь с Preview. Claude запрещено закрывать этот пробел новым scaffold или кодом другого проекта.
+Исходный код, manifests и SQL импортированы в `main`. Реализацию ведёт Claude по поручению владельца (Issue #5, PR #8); Codex выполняет независимый review. Production, реальные данные и секреты запрещены.
 
-## Автоматический переход к работе
+Что уже проверено и как (подробно — submission-03):
 
-После merge исходного приложения task curator проверяет код и заменяет оба `SET_AFTER_...` точными значениями. Если дерево чистое, Preview/test-среда безопасна и противоречий нет, статус меняется на `ready`. После этого Claude начинает `TASK-2026-001` без нового общего разрешения владельца.
+- `PASS_BY_IMPLEMENTER (local)`: полный apply chain на одноразовой PostgreSQL 16, семь синтетических аккаунтов и два tenant через REST/RPC (PostgREST 12), настоящий SPA с supabase-js в браузере против той же локальной БД, репетиция отката через резервную копию;
+- `PASS_BY_IMPLEMENTER (MOCK)`: браузер с подменённым backend (360/375/390, состояния, регрессия экранов);
+- `BLOCKED` (blocker-02): настоящий `/app` с middleware и server bootstrap, GoTrue login/callback/logout/recovery, Storage API, Realtime, внешний Preview с exact SHA.
+
+Это результаты исполнителя, а не приёмка.
+
+## Проверенный preflight
+
+- origin: `https://github.com/alanbykov11work-ux/exim.git`;
+- clean base: `main` @ `64017a5d46ab54eae492fc9b0e2987e214f81782`;
+- stack (manifests ветки): Next.js 15.5.27 / React 18.3.1 / TypeScript 5.9 / Supabase;
+- Product OS: `product-os-task-2026-001-r1` @ `0306844716ed0ed69033e264f5398b1e992a2851`, read-only;
+- baseline build и typecheck проходят с process-only placeholder public Supabase values;
+- production deployment не выполняется.
+
+## История
+
+| Дата | Было | Стало | Actor | Причина |
+|---|---|---|---|---|
+| 2026-09-17 | `awaiting_application_source` | `in_progress` | Codex task curator по прямому поручению владельца | Source подтверждён на exact baseline; разрешена локальная реализация без production |
+| 2026-10-13 | ветка `foundation-wave-1`, Next 14, действие «Codex реализует Wave 1» | ветка `task/TASK-2026-001-integrated` @ `64843fd`, Next 15.5.27, submission-01 | Claude task curator (Issue #5) | Исправления по Codex review 2026-10-08, одна интегрированная сдача; статус остаётся `in_progress` |
+| 2026-10-14 | head `64843fd`, submission-01 | head `c066519`: 4c/5a влиты fast-forward, исправление `exim.trusted`, Wave 5b, локальный стек; submission-02 | Claude task curator (Issue #5, поручение 2026-10-13) | Статус остаётся `in_progress`; приёмки нет |
 
 ## Обязательное чтение перед TASK-2026-001
 
@@ -37,3 +61,4 @@
 - `docs/07-mvp/foundation-gate.md`;
 - `docs/10-implementation/current-state.md`;
 - `docs/10-implementation/audits/2026-09-04-super-app-live-audit.md`.
+| 2026-10-16 | submission-02 @ `c066519` | submission-03 @ `563b23c`: сквозной сценарий настоящего SPA на локальном backend | Claude task curator | Статус `in_progress`; приёмки нет |

@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/public/exim/app.css"></head><body><div id="host"></div>
+<script src="/__vendor/supabase.js"></script>
+<script>
+// Real SPA scripts + real supabase-js against a local PostgREST (rest/v1 proxied). Token per role from the server.
+const P = new URLSearchParams(location.search);
+const ROLE = P.get('as');
+const CFG = window.__CFG; // injected by server: { token, user }
+window.__SUPA = supabase.createClient(location.origin, 'local-anon', {
+  global: { headers: { Authorization: 'Bearer ' + CFG.token } },
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+window.__EXIM = CFG.user;
+function load(src){ return new Promise((ok,bad)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=bad; document.body.appendChild(s); }); }
+(async()=>{
+  document.getElementById('host').innerHTML = await (await fetch('/public/exim/body.html')).text();
+  const B='/public/exim/';
+  await load(B+'leaflet.js'); await load(B+'app.js');
+  await Promise.all([load(B+'workflow.js'),load(B+'modules.js'),load(B+'crm.js')]);
+  await load(B+'counts.js'); await load(B+'server-mode.js'); await load(B+'router.js');
+  window.__BOOTED = true;
+})().catch(e=>{ window.__BOOTERR = String(e); });
+</script></body></html>

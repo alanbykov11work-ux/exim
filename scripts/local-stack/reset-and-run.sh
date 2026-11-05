@@ -5,7 +5,7 @@
 #           PostgREST 12 binary as POSTGREST_BIN, Node 20+. Nothing here talks to a hosted project.
 set -euo pipefail
 DB="${EXIM_LOCAL_DB:-exim_local_$(date +%s)}"
-printf "%s" "$DB" | grep -Eq "^exim_[a-z0-9_]{1,50}$" || { echo "Refusing: EXIM_LOCAL_DB must be exim_<suffix>" >&2; exit 2; }
+printf "%s" "$DB" | grep -Eq "^exim_[a-z0-9_]{1,50}$" || { echo "Refusing (local-stack preflight): EXIM_LOCAL_DB must be exim_<suffix>" >&2; exit 2; }
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 . "$ROOT/scripts/local-stack/preflight.sh"
 exim_preflight admin "${PG_ADMIN_URL:-}"

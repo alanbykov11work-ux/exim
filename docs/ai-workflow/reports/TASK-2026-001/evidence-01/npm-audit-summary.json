@@ -1,0 +1,106 @@
+{
+ "metadata": {
+  "info": 0,
+  "low": 0,
+  "moderate": 1,
+  "high": 6,
+  "critical": 0,
+  "total": 7
+ },
+ "packages": {
+  "@next/eslint-plugin-next": {
+   "severity": "high",
+   "isDirect": false,
+   "range": ">=14.3.0-canary.0",
+   "fixAvailable": {
+    "name": "eslint-config-next",
+    "version": "14.2.35",
+    "isSemVerMajor": true
+   },
+   "via": [
+    "fast-glob"
+   ]
+  },
+  "braces": {
+   "severity": "high",
+   "isDirect": false,
+   "range": "*",
+   "fixAvailable": {
+    "name": "eslint-config-next",
+    "version": "14.2.35",
+    "isSemVerMajor": true
+   },
+   "via": [
+    "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns"
+   ]
+  },
+  "eslint-config-next": {
+   "severity": "high",
+   "isDirect": true,
+   "range": ">=14.3.0-canary.0",
+   "fixAvailable": {
+    "name": "eslint-config-next",
+    "version": "14.2.35",
+    "isSemVerMajor": true
+   },
+   "via": [
+    "@next/eslint-plugin-next"
+   ]
+  },
+  "fast-glob": {
+   "severity": "high",
+   "isDirect": false,
+   "range": "*",
+   "fixAvailable": {
+    "name": "eslint-config-next",
+    "version": "14.2.35",
+    "isSemVerMajor": true
+   },
+   "via": [
+    "micromatch"
+   ]
+  },
+  "micromatch": {
+   "severity": "high",
+   "isDirect": false,
+   "range": ">=0.2.0",
+   "fixAvailable": {
+    "name": "eslint-config-next",
+    "version": "14.2.35",
+    "isSemVerMajor": true
+   },
+   "via": [
+    "braces"
+   ]
+  },
+  "next": {
+   "severity": "moderate",
+   "isDirect": true,
+   "range": "9.3.4-canary.0 - 16.3.0-preview.10",
+   "fixAvailable": {
+    "name": "next",
+    "version": "16.4.0",
+    "isSemVerMajor": true
+   },
+   "via": [
+    "postcss"
+   ]
+  },
+  "postcss": {
+   "severity": "high",
+   "isDirect": false,
+   "range": "<=8.5.22",
+   "fixAvailable": {
+    "name": "next",
+    "version": "16.4.0",
+    "isSemVerMajor": true
+   },
+   "via": [
+    "PostCSS has XSS via Unescaped </style> in its CSS Stringify Output",
+    "PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMappingURL in CSS comments",
+    "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+    "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure"
+   ]
+  }
+ }
+}

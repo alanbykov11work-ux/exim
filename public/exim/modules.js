@@ -171,12 +171,12 @@
     const s = S();
     const [chatsRes, profsRes] = await Promise.all([
       s.from('chats').select('*').order('created_at', { ascending: false }),
-      CHS.profiles.length ? Promise.resolve({ data: CHS.profiles }) : s.from('profiles').select('id, full_name, email, role, company')
+      CHS.profiles.length ? Promise.resolve({ data: CHS.profiles }) : s.rpc('workspace_directory', { p_workspace_id: U().workspaceId })
     ]);
     CHS.list = chatsRes.data || [];
     CHS.profiles = profsRes.data || [];
   }
-  const pname = id => { const p = CHS.profiles.find(x => x.id === id); return p ? (p.full_name || p.email) : '…'; };
+  const pname = id => { const p = CHS.profiles.find(x => x.id === id); return p ? (p.full_name || p.email || 'Сотрудник') : '…'; };
 
   async function renderChats() {
     const box = document.getElementById('ch-content');
@@ -374,7 +374,7 @@
         <div style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:8px;">
           ${others.map(p => `<label style="display:flex;gap:10px;align-items:center;padding:7px 6px;cursor:pointer;font-size:14px;">
             <input type="checkbox" class="ch-pick" value="${p.id}">
-            <span>${esc(p.full_name || p.email)}</span>
+            <span>${esc(p.full_name || p.email || 'Сотрудник')}</span>
             <span class="pill pill-info" style="margin-left:auto;">${{ client: 'Клиент', manager: 'Менеджер', logist: 'Логист', admin: 'Админ' }[p.role] || p.role}</span>
           </label>`).join('') || '<div style="color:var(--muted);">Нет доступных участников</div>'}
         </div></div>
@@ -388,13 +388,13 @@
     const gname = (document.getElementById('ch-gname') || {}).value || '';
     const isGroup = ids.length > 1;
     const name = isGroup ? (gname || 'Группа') : (gname || pname(ids[0]));
-    const s = S();
-    const { data: chat, error } = await s.from('chats').insert({ name, is_group: isGroup, created_by: U().id }).select().single();
+    // чат и состав участников создаются одной серверной командой:
+    // она проверяет workspace, роли и не смешивает клиентов разных компаний
+    const { data: chatId, error } = await S().rpc('create_chat', {
+      p_workspace_id: U().workspaceId, p_name: name, p_is_group: isGroup, p_members: ids
+    });
     if (error) { showToast('danger', 'Ошибка', error.message); return; }
-    const rows = ids.concat([U().id]).map(uid => ({ chat_id: chat.id, user_id: uid, added_by: U().id }));
-    const { error: e2 } = await s.from('chat_members').insert(rows);
-    if (e2) { showToast('danger', 'Ошибка участников', e2.message); return; }
-    closeModal(); CHS.active = chat.id; renderChats();
+    closeModal(); CHS.active = chatId; renderChats();
   }
 
   /* ============================================================
@@ -415,10 +415,11 @@
     const s = S();
     const { data } = await s.from('tasks').select('*').order('created_at', { ascending: false });
     TSK.list = data || [];
-    const { data: profs } = await s.from('profiles').select('id, full_name, email, role');
+    // справочник workspace: клиенту в нём видны только сотрудники
+    const { data: profs } = await s.rpc('workspace_directory', { p_workspace_id: U().workspaceId });
     TSK.profiles = profs || [];
   }
-  const tname = id => { const p = TSK.profiles.find(x => x.id === id); return p ? (p.full_name || p.email) : '…'; };
+  const tname = id => { const p = TSK.profiles.find(x => x.id === id); return p ? (p.full_name || p.email || 'Сотрудник') : '…'; };
 
   async function renderTasks() {
     const box = document.getElementById('ts-content');
@@ -470,7 +471,7 @@
       </div>${bodyHtml}`;
   }
   function newTaskModal() {
-    const others = TSK.profiles;
+    const others = TSK.profiles.filter(p => p.role !== 'client'); // исполнитель — только сотрудник workspace
     openModal('Новая задача', `
       <div class="form-group"><label class="form-label">Название</label>
         <input class="form-input" id="ts-title" placeholder="Подготовить КП по Урумчи — Алматы"></div>
@@ -478,7 +479,7 @@
         <textarea class="form-input" id="ts-desc" rows="3" placeholder="Что нужно сделать"></textarea></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div class="form-group"><label class="form-label">Исполнитель</label>
-          <select class="form-input" id="ts-assignee">${others.map(p => `<option value="${p.id}" ${p.id === U().id ? 'selected' : ''}>${esc(p.full_name || p.email)}</option>`).join('')}</select></div>
+          <select class="form-input" id="ts-assignee">${others.map(p => `<option value="${p.id}" ${p.id === U().id ? 'selected' : ''}>${esc(p.full_name || p.email || 'Сотрудник')}</option>`).join('')}</select></div>
         <div class="form-group"><label class="form-label">Крайний срок</label>
           <input class="form-input" id="ts-deadline" type="datetime-local"></div>
       </div>
@@ -490,6 +491,7 @@
     const v = id => (document.getElementById(id) || {}).value || '';
     if (!v('ts-title')) { showToast('warning', 'Название обязательно', ''); return; }
     const row = {
+      workspace_id: U().workspaceId,
       title: v('ts-title'), description: v('ts-desc'), creator_id: U().id,
       assignee_id: v('ts-assignee') || U().id,
       deadline: v('ts-deadline') ? new Date(v('ts-deadline')).toISOString() : null,

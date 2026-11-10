@@ -29,7 +29,7 @@
   <header class="app-header">
     <div class="hdr-search">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input id="hdr-search-input" placeholder="Поиск по номеру заявки…" onkeydown="if (event.key === 'Enter') headerSearch()">
+      <input id="hdr-search-input" placeholder="Номер заявки или перевозки…" onkeydown="if (event.key === 'Enter') headerSearch()">
     </div>
 
     <div class="app-actions">
@@ -92,7 +92,7 @@
         </div>
 
         <!-- Quick actions -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;">
+        <div class="dash-quick">
           <button class="dash-link" style="border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow);padding:16px;" onclick="navigate('shipment-new')">
             <div class="dash-link-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><span data-i18n="qa.request">Оставить заявку</span><span class="dash-link-arrow">→</span>
           </button>
@@ -604,7 +604,7 @@
 
         <div class="card" style="margin-bottom: 24px;">
           <div style="display: flex; gap: 12px;">
-            <input type="text" id="tracking-search-input" class="form-input" placeholder="Введите номер заявки (EX-XXXX)" style="flex: 1;" onkeydown="if(event.key==='Enter')trackSearch()">
+            <input type="text" id="tracking-search-input" class="form-input" placeholder="Номер заявки (ZK-…) или перевозки (01-02-10-0007)" style="flex: 1;" onkeydown="if(event.key==='Enter')trackSearch()">
             <button class="btn btn-primary" onclick="trackSearch()">Найти</button>
           </div>
         </div>

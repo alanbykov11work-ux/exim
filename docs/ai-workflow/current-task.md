@@ -10,17 +10,17 @@
 | Product OS ref | `product-os-task-2026-001-r1` / `0306844716ed0ed69033e264f5398b1e992a2851` |
 | Application baseline SHA | `64017a5d46ab54eae492fc9b0e2987e214f81782` |
 | Implementation branch | `task/TASK-2026-001-integrated` (все незамерженные волны Foundation Gate: Wave 1–5b, исправления review 2026-10-08 и 2026-11-04) |
-| Code head | `563b23cae890e417825be8d6676a3744ea0f61cd` (submission-03) |
-| Target environment | Локальный non-production стек (PostgreSQL 16 + PostgREST 12, `scripts/local-stack/`), PGlite, MOCK-браузер; hosted Preview/test Supabase `BLOCKED` — blocker-02 |
-| Production deploy | `FORBIDDEN` |
-| Последняя сдача | `reports/TASK-2026-001/submission-03.md`, `evidence-manifest-03.md` (PR #8) |
-| Следующее действие | Независимый review PR интегрированной ветки; интегратор создаёт test Supabase + Preview (blocker-02); затем hosted-проверки семью аккаунтами |
+| Последний application code SHA | `ef0a8344c5527669ff29c46a90e3d800e2d40edf`; для новой выкладки фиксировать её фактический SHA, а не ждать разрешения на каждый commit |
+| Target environment | Local/test/Preview и подтверждённый production Super App разрешены по [deployment-policy.md](deployment-policy.md); последний отчёт о доступе — submission-04, актуальный доступ проверить в сессии Alan |
+| Production deploy | **AUTHORIZED BY OWNER (2026-11-16)** — без нового одобрения Codex, с safety gates из deployment-policy.md |
+| Последняя сдача | `reports/TASK-2026-001/submission-04.md`, `evidence-manifest-04.md`; report commit `6c7b5e51499724826230068ceb272ff5ee1aaf12` (PR #8) |
+| Следующее действие | Claude/интегратор устраняют технические blockers, безопасно готовят и публикуют Super App; необходимый обычный merge разрешён, отдельное одобрение Codex не требуется |
 
 ## Текущая граница выполнения
 
-Исходный код, manifests и SQL импортированы в `main`. Реализацию ведёт Claude по поручению владельца (Issue #5, PR #8); Codex выполняет независимый review. Production, реальные данные и секреты запрещены.
+Исходный код, manifests и SQL импортированы в `main`. Реализацию ведёт Claude по поручению владельца (Issue #5, PR #8); Codex выполняет независимый review. Production разрешён по deployment-policy.md. Рабочие данные обрабатываются только для безопасного обновления с сохранением прав/связей, backup и откатом; раскрытие данных/секретов и ослабление защиты запрещены.
 
-Что уже проверено и как (подробно — submission-03):
+Исторические результаты (submission-03/04; не подтверждение текущего production):
 
 - `PASS_BY_IMPLEMENTER (local)`: полный apply chain на одноразовой PostgreSQL 16, семь синтетических аккаунтов и два tenant через REST/RPC (PostgREST 12), настоящий SPA с supabase-js в браузере против той же локальной БД, репетиция отката через резервную копию;
 - `PASS_BY_IMPLEMENTER (MOCK)`: браузер с подменённым backend (360/375/390, состояния, регрессия экранов);
@@ -35,7 +35,7 @@
 - stack (manifests ветки): Next.js 15.5.27 / React 18.3.1 / TypeScript 5.9 / Supabase;
 - Product OS: `product-os-task-2026-001-r1` @ `0306844716ed0ed69033e264f5398b1e992a2851`, read-only;
 - baseline build и typecheck проходят с process-only placeholder public Supabase values;
-- production deployment не выполняется.
+- до решения владельца 2026-11-16 production deployment не подтверждён; теперь он разрешён по deployment-policy.md.
 
 ## История
 
@@ -62,3 +62,9 @@
 - `docs/10-implementation/current-state.md`;
 - `docs/10-implementation/audits/2026-09-04-super-app-live-audit.md`.
 | 2026-10-16 | submission-02 @ `c066519` | submission-03 @ `563b23c`: сквозной сценарий настоящего SPA на локальном backend | Claude task curator | Статус `in_progress`; приёмки нет |
+
+## Разрешение владельца — 2026-11-16
+
+Исправления, push, необходимый обычный merge и production deploy разрешены без повторного сигнала Codex. Статус in_progress разрешает продолжение. Отсутствие Preview/полного отчёта/формальной приёмки не создаёт отдельного запрета, но реальные security/data blockers должны быть устранены до опасной операции. Действует [deployment-policy.md](deployment-policy.md).
+
+Изменение от 2026-11-16: прежний production FORBIDDEN и ожидание отдельного review заменены действующим разрешением владельца; исторические отчёты сохранены, статус принятия продукта не изменён.

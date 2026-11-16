@@ -1,0 +1,39 @@
+name: CI
+
+# Application checks for pull requests. Read-only, no secrets, no deploy, no SQL against any database.
+# Browser E2E and the REST Gate scenario need Chromium, PostgreSQL 16 and PostgREST 12; they are run by
+# scripts/local-stack/* outside CI and are reported as NOT_RUN for CI (not as PASS).
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: install, test, typecheck, lint, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # explicitly fake public values: the build must not reach any Supabase project
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.invalid
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-not-a-key
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+

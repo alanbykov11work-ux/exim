@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const ip = clientIp(req);
   const key = `login:${email}:${ip}`;
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1) проверка блокировки ДО попытки входа
   const { data: status } = ENFORCE_LOCK

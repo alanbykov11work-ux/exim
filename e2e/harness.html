@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/public/exim/app.css"></head><body><div id="host"></div>
+<script>
+(function(){
+  const O1='10000000-0000-4000-8000-0000000000a1', T1='10000000-0000-4000-8000-0000000000b1';
+  const DB={
+    orders:[{id:O1,ref:'ZK-261013-AAAAA',status:'new',origin:'Урумчи',destination:'Алматы',cargo:'текстиль',workspace_id:'ws1',client_company_id:'c1',created_at:'2026-10-10T10:00:00Z'}],
+    transports:[{id:T1,ref:'01-02-10-0007',order_id:O1,status:'in_transit',progress:50,origin:'Урумчи',destination:'Алматы',created_at:'2026-10-11T10:00:00Z',workspace_id:'ws1'}],
+  };
+  window.__FAIL = new Set(JSON.parse(sessionStorage.getItem('fail')||'[]'));
+  window.__CALLS = [];
+  function resp(name, filters){
+    window.__CALLS.push(name);
+    if (window.__FAIL.has(name)) { return {data:null,error:{code:'XX000',status:500,message:'injected failure'}}; }
+    if (name==='rpc:orders_scoped') return {data:DB.orders,error:null};
+    if (name==='rpc:find_by_number') { const q=String(filters.p_number||'').toUpperCase();
+      const r=[...DB.orders.filter(o=>o.ref===q).map(o=>({kind:'order',id:o.id,ref:o.ref})),...DB.transports.filter(t=>t.ref===q).map(t=>({kind:'transport',id:t.id,ref:t.ref}))];
+      return {data:r,error:null}; }
+    if (name==='rpc:transport_feed_staff' || name.startsWith('rpc:')) return {data:[],error:null};
+    let rows = DB[name] || [];
+    for (const [k,v] of Object.entries(filters)) rows = rows.filter(r=>r[k]===v);
+    return {data:rows,error:null};
+  }
+  function chain(name, params){
+    const filters = Object.assign({}, params||{}); let mode='many';
+    const p = new Proxy({}, { get(_, prop){
+      if (prop==='then') return (ok,bad)=>Promise.resolve().then(()=>{ const r=resp(name,filters);
+          if (mode!=='many' && r.data) return {data:r.data[0]||null,error:r.error}; return r; }).then(ok,bad);
+      if (prop==='eq') return (k,v)=>{ filters[k]=v; return p; };
+      if (prop==='single'||prop==='maybeSingle') return ()=>{ mode='one'; return p; };
+      return ()=>p; } });
+    return p;
+  }
+  window.__SUPA = { rpc:(fn,args)=>chain('rpc:'+fn,args), from:(t)=>chain(t),
+    channel:()=>({on(){return this},subscribe(){return this}}), removeChannel(){},
+    auth:{ getUser:async()=>({data:{user:{id:'u1'}}}), onAuthStateChange(){return {data:{subscription:{unsubscribe(){}}}}}, signOut:async()=>({}) },
+    storage:{ from:()=>({ createSignedUrl:async()=>({data:null,error:{message:'x'}}), upload:async()=>({error:null}) }) } };
+  window.__EXIM = { id:'u1', role:'manager', workspaceId:'ws1', clientCompanyId:null };
+})();
+function load(src){ return new Promise((ok,bad)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=bad; document.body.appendChild(s); }); }
+(async()=>{
+  document.getElementById('host').innerHTML = await (await fetch('/public/exim/body.html')).text();
+  const B='/public/exim/';
+  await load(B+'leaflet.js'); await load(B+'app.js');
+  await Promise.all([load(B+'workflow.js'),load(B+'modules.js'),load(B+'crm.js')]);
+  await load(B+'counts.js'); await load(B+'server-mode.js'); await load(B+'router.js');
+  window.__BOOTED = true;
+})().catch(e=>{ window.__BOOTERR = String(e); });
+</script></body></html>

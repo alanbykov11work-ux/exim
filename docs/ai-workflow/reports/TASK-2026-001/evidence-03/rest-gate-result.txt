@@ -1,0 +1,86 @@
+ok   client A1 submits a request
+ok   repeated submit returns the same request
+ok   client A2 cannot create for company A1
+ok   clientA2 does not see order of A1 by direct id
+ok   clientB1 does not see order of A1 by direct id
+ok   adminB does not see order of A1 by direct id
+ok   anonymous request gets nothing
+ok   client cannot select total_price column directly
+ok   client cannot change status directly
+ok   client cannot assign a logistician
+ok   manager assigns the logistician
+ok   logistician accepts (rate_search)
+ok   first RateQuote saved
+ok   first rate does not change the stage
+ok   completion refused with one rate
+ok   second RateQuote saved separately
+ok   client does not see rates
+ok   logistician completes rate search
+ok   logistician cannot create a CommercialOffer
+ok   manager selects a rate
+ok   manager sends offer v1
+ok   logistician payload has no client price
+ok   client sees the price after the offer and no internal comment
+ok   client A2 cannot decide for A1
+ok   client A1 approves exact version
+ok   manager records the contract basis
+ok   exactly one Shipment (repeat returns the same)
+ok   manager cannot move the shipment
+ok   preparation → factory_contact
+ok   factory_contact → pickup_waiting
+ok   Trip created idempotently with sequence 1
+ok   road trip needs vehicle and driver
+ok   transport assigned
+ok   shipment loading
+ok   trip loading
+ok   trip in_transit
+ok   shipment in_transit
+ok   Post-Gate transition refused
+ok   two internal tracking events
+ok   logistician cannot publish
+ok   manager publishes event 1
+ok   manager publishes event 2
+ok   client sees two published events in order
+ok   client cannot read hidden_reason/published_by
+ok   client gets no internal events
+ok   client gets no trip rows (driver, vehicle)
+ok   client trip layer has no carrier/vehicle/driver
+ok   client gets only the client label
+ok   clientA2 gets no tracking of A1
+ok   clientA2 cannot find the shipment by number
+ok   clientB1 gets no tracking of A1
+ok   clientB1 cannot find the shipment by number
+ok   tenant admin B sees no audit of workspace A
+ok   tenant admin A sees own audit (shipment created)
+ok   tenant admin cannot change workflow templates
+ok   partner basis needs selected rate and comes after contract basis
+ok   assigned logistician records partner basis after the client contract basis
+ok   client does not see partner basis
+ok   logistician creates a factory document (internal by default)
+ok   client cannot create documents
+ok   staff uploads into the document folder (storage policy)
+ok   client cannot upload into a document folder
+ok   version 1 registered
+ok   internal document invisible to client by direct id
+ok   internal file invisible to client by direct path
+ok   logistician cannot publish to client
+ok   publication needs a reason
+ok   manager publishes the document
+ok   client sees the published document
+ok   client cannot read staff fields of a document
+ok   replacement creates version 2
+ok   both versions kept
+ok   clientA2 cannot see the published document of A1
+ok   clientA2 cannot fetch the file of A1
+ok   clientB1 cannot see the published document of A1
+ok   clientB1 cannot fetch the file of A1
+ok   audit contains workflow.transition
+ok   audit contains rate_quote.created
+ok   audit contains offer.created
+ok   audit contains tracking.published
+ok   audit contains document.created
+ok   audit contains document.uploaded
+ok   audit contains document.replaced
+ok   audit contains document.published
+ok   audit contains order.partner_basis_recorded
+PASS 85 of 85

@@ -7,6 +7,8 @@ export type EximUser = {
   id: string;
   email: string;
   role: string;
+  workspaceId: string;
+  clientCompanyId: string | null;
   fullName: string;
   company: string;
   phone: string;
@@ -234,6 +236,12 @@ export default function EximApp({ user }: { user: EximUser }) {
           loadScript("/exim/modules.js" + V),
           loadScript("/exim/crm.js" + V),
         ]);
+        // серверные счётчики и серверный режим — до навигации: первый адрес
+        // из строки браузера уже рисуется серверными данными, а не демо-данными
+        await loadScript("/exim/counts.js" + V);
+        await loadScript("/exim/server-mode.js" + V);
+        // навигация подключается последней: она оборачивает navigate всех модулей
+        await loadScript("/exim/router.js" + V);
 
         if (!cancelled) setBooting(false);
       } catch (e) {

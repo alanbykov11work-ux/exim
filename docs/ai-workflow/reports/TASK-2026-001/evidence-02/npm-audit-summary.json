@@ -1,0 +1,40 @@
+{
+ "metadata": {
+  "info": 0,
+  "low": 0,
+  "moderate": 1,
+  "high": 6,
+  "critical": 0,
+  "total": 7
+ },
+ "packages": {
+  "@next/eslint-plugin-next": {
+   "severity": "high",
+   "isDirect": false
+  },
+  "braces": {
+   "severity": "high",
+   "isDirect": false
+  },
+  "eslint-config-next": {
+   "severity": "high",
+   "isDirect": true
+  },
+  "fast-glob": {
+   "severity": "high",
+   "isDirect": false
+  },
+  "micromatch": {
+   "severity": "high",
+   "isDirect": false
+  },
+  "next": {
+   "severity": "moderate",
+   "isDirect": true
+  },
+  "postcss": {
+   "severity": "high",
+   "isDirect": false
+  }
+ }
+}

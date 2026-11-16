@@ -137,9 +137,13 @@
 
     function switchRole(role, event) {
       const own = (window.__EXIM && window.__EXIM.role) || 'client';
-      if (own === 'client' && role !== 'client') { showToast('warning', 'Недостаточно прав', 'Смена роли доступна только сотрудникам EXIM'); return; }
-      APP_STATE.currentRole = role;
-      document.body.setAttribute('data-role', role);
+      const effectiveOwn = own === 'admin' ? 'manager' : own;
+      if (role !== effectiveOwn) {
+        showToast('warning', 'Недостаточно прав', 'Рабочая роль назначается администратором компании');
+        return;
+      }
+      APP_STATE.currentRole = effectiveOwn;
+      document.body.setAttribute('data-role', effectiveOwn);
 
       // Update role switcher
       document.querySelectorAll('.role-switcher button').forEach(btn => {
@@ -148,13 +152,13 @@
       if (event && event.currentTarget) event.currentTarget.classList.add('active');
 
       // Navigate to appropriate page
-      if (role === 'manager' || role === 'logist') {
+      if (effectiveOwn === 'manager' || effectiveOwn === 'logist') {
         navigate('margin');
       } else {
         navigate('dashboard');
       }
 
-      showToast('success', 'Роль изменена', `Вы переключились на роль: ${role === 'client' ? 'Клиент' : role === 'manager' ? 'Менеджер' : 'Логист'}`);
+      showToast('info', 'Рабочая роль', effectiveOwn === 'client' ? 'Клиент' : effectiveOwn === 'manager' ? 'Менеджер' : 'Логист');
     }
 
     function logout() {
@@ -1421,35 +1425,48 @@
       }, 900);
     }
 
-    function headerSearch() {
-      const input = document.getElementById('hdr-search-input');
-      const q = (input.value || '').trim().toUpperCase();
-      if (!q) return;
-      const found = APP_STATE.shipments.find(s => s.id.toUpperCase() === q || s.id.toUpperCase().includes(q));
-      if (found) {
-        input.value = '';
-        navigate('shipment-detail', null, found.id);
-        showToast('success', 'Найдено', 'Открываем ' + found.id);
-      } else {
-        showToast('danger', 'Не найдено', 'Заявка ' + q + ' не найдена');
+    // Поиск по номеру идёт на сервере и видит ровно то, что доступно роли:
+    // неизвестный номер и чужой объект дают одинаковый ответ (AC-TASK-008).
+    async function findByNumber(raw) {
+      const q = String(raw || '').trim();
+      if (q.length < 3) return { status: 'too-short' };
+      const s = window.__SUPA;
+      if (!s) return { status: 'error' };
+      const { data, error } = await s.rpc('find_by_number', { p_number: q });
+      if (error) return { status: 'error' };
+      if (!data || !data.length) return { status: 'not-found', query: q };
+      return { status: 'found', item: data[0] };
+    }
+
+    async function openFound(item) {
+      // единый типизированный адрес: #/order/<id> или #/shipment/<id>; Reload его восстанавливает
+      const kind = item.kind === 'transport' ? 'shipment' : item.kind === 'order' ? 'order' : null;
+      if (kind && window.__EXIM_ROUTER && window.__EXIM_ROUTER.go) await window.__EXIM_ROUTER.go(kind, item.id);
+    }
+
+    function reportSearch(result) {
+      if (result.status === 'too-short') {
+        showToast('warning', 'Введите номер', 'Номер заявки (ZK-…) или номер перевозки (например, 01-02-10-0007)');
+      } else if (result.status === 'error') {
+        showToast('danger', 'Поиск недоступен', 'Не удалось выполнить поиск. Повторите попытку');
+      } else if (result.status === 'not-found') {
+        showToast('warning', 'Не найдено', 'Объект с номером ' + result.query + ' не найден или недоступен');
       }
     }
 
-    function trackSearch() {
+    async function headerSearch() {
+      const input = document.getElementById('hdr-search-input');
+      const result = await findByNumber(input.value);
+      if (result.status !== 'found') { reportSearch(result); return; }
+      input.value = '';
+      await openFound(result.item);
+    }
+
+    async function trackSearch() {
       const input = document.getElementById('tracking-search-input');
-      const q = (input.value || '').trim().toUpperCase();
-      if (!q) {
-        showToast('warning', 'Введите номер', 'Укажите номер заявки в формате EX-XXXX');
-        input.focus();
-        return;
-      }
-      const found = APP_STATE.shipments.find(s => s.id.toUpperCase() === q);
-      if (found) {
-        showToast('success', 'Заявка найдена', `Открываем ${found.id}`);
-        navigate('shipment-detail', null, found.id);
-      } else {
-        showToast('danger', 'Не найдено', `Заявка ${q} не найдена`);
-      }
+      const result = await findByNumber(input.value);
+      if (result.status !== 'found') { reportSearch(result); input.focus(); return; }
+      await openFound(result.item);
     }
 
     // Delegated actions for dynamically-rendered / repeated buttons
@@ -1628,7 +1645,7 @@
 
     // ===== Persistence =====
     const KZT_RATE = 475;
-    function fmtKZT(usd) { return '₸ ' + Math.round(usd * KZT_RATE).toLocaleString('ru-RU'); }
+    function fmtKZT(usd) { if (usd == null || isNaN(usd)) return "—"; return '₸ ' + Math.round(usd * KZT_RATE).toLocaleString('ru-RU'); }
     function persist() {
       try {
         localStorage.setItem('exim-data-v2', JSON.stringify({
@@ -1643,7 +1660,8 @@
         const raw = localStorage.getItem('exim-data-v2');
         if (!raw) return;
         const d = JSON.parse(raw);
-        if (d.shipments) APP_STATE.shipments = d.shipments;
+        // при серверной сессии демо-перевозки из браузера не загружаются (Codex review п.5)
+        if (d.shipments && !window.__SUPA) APP_STATE.shipments = d.shipments;
         if (d.containers) APP_STATE.containers = d.containers;
         if (d.requests) APP_STATE.requests = d.requests;
       } catch (e) {}
@@ -2026,9 +2044,7 @@
 
       // Auth: сессия и роль приходят из Next.js / Supabase
       const exim = window.__EXIM || { role: 'client' };
-      if ((exim.role || 'client') === 'client') {
-        document.querySelectorAll('.role-switcher').forEach(function(el) { el.style.display = 'none'; });
-      }
+      document.querySelectorAll('.role-switcher').forEach(function(el) { el.style.display = 'none'; });
       switchRoleTo(exim.role === 'manager' || exim.role === 'logist' || exim.role === 'admin' ? (exim.role === 'admin' ? 'manager' : exim.role) : 'client');
       updateFormStep();
     }
